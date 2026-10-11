@@ -45,6 +45,19 @@ tools\DumpBuddies（打印两种指纹与 90200 动画行分布）。
 自检予以保留，用于识别被旧版搬乱过的输入）。节奏安全版仍可用
 backup_1.1.0\ErringulatorCN_1.2.5.exe。
 
+1.2.9 与 Elden Ring Randomizer（thefifthmatt）兼容修复：
+  · 内嵌 SoulsFormats 的 DCX.DecompressDCXZSTD 原本断言 ZSTD 版本字节
+    必须为 21(0x15)（游戏原版/SoulsFormats 写入值）；428 随机化器输出
+    使用 15(0x0F)（其写入侧压缩级别），导致读取失败（"Read Byte: 0xF |
+    Expected: 0x15"）。现改为 AssertByte(15, 21) 两者均接受；写入侧
+    维持 21（游戏标准）。实测：428 输出 194 表读写正常、敌人池
+    6200→6664、安全自检 9/9。
+  · CheckTalkRhythmHealth 指纹由"11 个节奏字段全表哈希"收窄为
+    "说话动作配对（id↔talkAnimationId）哈希"（原版常量
+    B729174AC3AB7BBA）：旧版损坏必然改变该指纹，而 428 对 TalkParam
+    的 5 行 lipSyncStart 合法修改不再触发误报；警告措辞同步软化
+    （说明其它工具的正常修改可忽略）。
+
 1.2.8 追忆类道具参与随机：GoodsUsableTypes 增加 goodsType=3
 （全表恰为 25 件追忆：本体 2950-2964 + DLC 2002900-2010），
 IsGoodsAnyType0（非保守模式）同步放行 type 3。道具池 234→259 行。

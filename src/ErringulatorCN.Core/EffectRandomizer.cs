@@ -220,37 +220,33 @@ namespace ErringulatorCN.Core
 
         // ==================== 对话数据健康检查 ====================
 
-        /// <summary>对话的"节奏字段"（说话动作 / 口型 / 时间 / 事件等）。</summary>
-        private static readonly string[] TalkRhythmFields =
-        {
-            "talkAnimationId", "lipSyncStart", "lipSyncTime", "timeout",
-            "motionId0", "motionId1",
-            "reactionId", "eventId", "returnPos",
-            "spEffectId0", "spEffectId1",
-        };
+        /// <summary>
+        /// 1.16 官方原版 TalkParam 的「说话动作配对指纹」（id↔talkAnimationId 对的哈希）。
+        ///
+        /// 只对"带说话动作的行"取值配对做指纹：旧版（1.2.2/1.2.3）的对话错位
+        /// 必然把这些动画值搬离原行，因此该指纹必定改变；而其它工具
+        /// （如 Elden Ring Randomizer 只改 5 行的 lipSyncStart）不会触发，
+        /// 避免了误报。
+        /// </summary>
+        private const string VanillaTalkAnimFingerprint = "B729174AC3AB7BBA";
 
-        /// <summary>1.16 官方原版 TalkParam 节奏整表指纹（全表 11 个节奏字段的哈希）。</summary>
-        private const string VanillaTalkRhythmFingerprint = "098347F2F6AB513B";
-
-        /// <summary>计算 TalkParam 节奏整表指纹（与检测逻辑、诊断工具完全一致）。</summary>
-        private static string ComputeTalkRhythmFingerprint(PARAM talk)
+        /// <summary>计算 TalkParam 说话动作配对指纹（格式与诊断工具一致：id:anim 以 | 连接）。</summary>
+        private static string ComputeTalkAnimFingerprint(PARAM talk)
         {
-            var sb = new StringBuilder();
-            foreach (PARAM.Row r in talk.Rows.Where(x => x.ID > 0).OrderBy(x => x.ID))
-            {
-                sb.Append(r.ID).Append(':');
-                foreach (string f in TalkRhythmFields)
-                    sb.Append(GoodsInt(r, f)).Append(':');
-                sb.Append('|');
-            }
-            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
+            var pairs = talk.Rows
+                .Where(x => x.ID > 0 && GoodsInt(x, "talkAnimationId") != -1)
+                .OrderBy(x => x.ID)
+                .Select(x => x.ID + ":" + GoodsInt(x, "talkAnimationId"));
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", pairs)));
             return Convert.ToHexString(hash).Substring(0, 16);
         }
 
         /// <summary>
-        /// 对话数据体检：输入文件的节奏数据若与 1.16 原版不一致，说明它曾被
-        /// 旧版本（1.2.2/1.2.3）搬乱过——那种损坏不会随重新生成自动复原，
-        /// 部分 NPC（如商人）对话会仍然飞速掠过。此处主动提醒用户先恢复备份。
+        /// 对话数据体检：输入文件的「说话动作配对」若与 1.16 原版不一致，说明
+        /// 它多半曾被本工具旧版本（1.2.2/1.2.3）搬乱过——那种损坏不会随重新
+        /// 生成自动复原，部分 NPC（如商人）对话会仍然飞速掠过，此处提醒用户。
+        /// 注：其它工具（mod 等）对 TalkParam 的正常修改通常不会改变该指纹；
+        /// 若用户明确知道此文件被别的工具改过，可忽略该提醒。
         /// </summary>
         private void CheckTalkRhythmHealth(Dictionary<string, BinderFile> byName, RandomizeReport report)
         {
@@ -258,19 +254,19 @@ namespace ErringulatorCN.Core
             PARAM talk = PARAM.Read(file.Bytes);
             if (!talk.ApplyParamdefCarefully(_paramdefs)) return;
 
-            string fp = ComputeTalkRhythmFingerprint(talk);
-            if (fp == VanillaTalkRhythmFingerprint)
+            string fp = ComputeTalkAnimFingerprint(talk);
+            if (fp == VanillaTalkAnimFingerprint)
             {
-                Log("对话数据体检：说话动作/节奏数据与 1.16 原版一致。");
+                Log("对话数据体检：说话动作配对与 1.16 原版一致。");
                 return;
             }
 
             string msg =
-                $"【重要】检测到输入文件的 NPC 对话「节奏数据」（说话动作/口型等）与 1.16 原版不一致" +
-                $"（当前指纹 {fp}，原版 {VanillaTalkRhythmFingerprint}）。" +
-                "这通常意味着此文件曾被旧版本（1.2.2/1.2.3）搬乱过——这类损坏不会因重新生成而复原，" +
-                "部分 NPC（如商人咖列）的对话仍会飞速掠过。" +
-                "请先点「恢复备份」（或改用从未做过对话随机的原版 regulation.bin）作为输入，再重新生成。";
+                $"【提示】检测到输入文件的 NPC 对话「说话动作配对」与 1.16 原版不一致" +
+                $"（当前指纹 {fp}，原版 {VanillaTalkAnimFingerprint}）。" +
+                "如果这份文件曾被本工具的旧版本（1.2.2/1.2.3）做过对话随机，这类损坏不会因重新生成而复原，" +
+                "部分 NPC（如商人的）对话会飞速掠过——请先「恢复备份」或用干净的原版文件作输入；" +
+                "如果它是被 Elden Ring Randomizer 等其它工具正常修改过的文件，可忽略本条提示。";
             Log("警告：" + msg);
             report.Warnings.Add(msg);
         }

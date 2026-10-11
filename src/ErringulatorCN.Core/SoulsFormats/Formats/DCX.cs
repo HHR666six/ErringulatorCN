@@ -388,7 +388,12 @@ namespace SoulsFormats
             br.AssertASCII("DCP\0");
             br.AssertASCII("ZSTD");
             br.AssertInt32(0x20);
-            br.AssertByte(21);
+            // 该字节记录写入方使用的 zstd 压缩级别/版本：
+            //   0x15 (21) = 游戏原版 / SoulsFormats 写入（本工具输出也用它）
+            //   0x0F (15) = Elden Ring Randomizer（thefifthmatt）等工具写入
+            // 解压不受此值影响，两者均接受（否则读取 randomizer 生成的
+            // regulation.bin 会在同一位置报 "Read Byte: 0xF | Expected: 0x15"）。
+            br.AssertByte(15, 21);
             br.AssertByte(0);
             br.AssertByte(0);
             br.AssertByte(0);
