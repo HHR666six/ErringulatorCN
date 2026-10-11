@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ErringulatorCN.Core</AssemblyName>
+    <RootNamespace>ErringulatorCN.Core</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CS1591：无 XML 注释；NU1603：传递依赖版本提示；
+         SYSLIB0021：内嵌 SoulsFormats 使用 AesManaged（上游代码，保持原样）；
+         CA2255：CoreInit 有意在库中使用 ModuleInitializer 注册 CodePages。 -->
+    <NoWarn>$(NoWarn);CS1591;NU1603;SYSLIB0021;CA2255</NoWarn>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- 自带 SoulsFormats 源码 + 本工程源码（排除构建产物，避免程序集特性重复） -->
+  <ItemGroup>
+    <Compile Include="SoulsFormats\**\*.cs" />
+    <Compile Include="*.cs" />
+    <Compile Remove="bin\**\*.cs" />
+    <Compile Remove="obj\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.1" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

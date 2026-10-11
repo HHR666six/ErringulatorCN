@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ErringulatorCN</AssemblyName>
+    <RootNamespace>ErringulatorCN.App</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <Version>1.2.7</Version>
+    <FileVersion>1.2.7.0</FileVersion>
+    <AssemblyVersion>1.2.7.0</AssemblyVersion>
+    <AssemblyTitle>艾尔登法环 效果随机化器</AssemblyTitle>
+    <Description>效果错位随机化 + Elden Ring Summon Randomizer 完整集成</Description>
+    <ApplicationIcon>Erringulator.ico</ApplicationIcon>
+    <Product>ErringulatorCN</Product>
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ErringulatorCN.Core\ErringulatorCN.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 随程序发布 paramdef 定义 -->
+  <ItemGroup>
+    <Content Include="paramdefs\**\*.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
