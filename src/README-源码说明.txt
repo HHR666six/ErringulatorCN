@@ -45,6 +45,23 @@ tools\DumpBuddies（打印两种指纹与 90200 动画行分布）。
 自检予以保留，用于识别被旧版搬乱过的输入）。节奏安全版仍可用
 backup_1.1.0\ErringulatorCN_1.2.5.exe。
 
+1.2.10 三项修复与增强：
+  · 道具保守筛选去掉 anim==0 排除：改为「有真实效果即纳入，254/255
+    占位动作仍排除」。新纳入 19 件使用动作字段为 0 的食用消耗品
+    （苔药 900-960、干肝 1150-1180、生肉丸 1235、DLC 药膳 2001110-
+    2001210），道具池 259→278；无动作且无效应的 211 行仍被排除。
+  · GoodsBlacklist 删除 1026-1049（1.16 中不存在的号段），与原版
+    Erringulator 的 GeneratorData.json → BlacklistGoods 逐项一致
+    （208 项）；核对脚本：src\_test\compare_blacklists.ps1（或按
+    _test 中同名逻辑用 bash 复核）。
+  · 新增 ProcessAccessoryEffects：护符真实能力加成由游戏按 ID 约定
+    查找 SpEffect（310000 + (accID-1000)*10；1.16 实测 157 个护符中
+    116 个存在该约定行）。仅搬 EquipParamAccessory 的 refId 等字段
+    游戏内不生效（原版 Erringulator 同样如此）；现把这 116 个约定
+    效果行的整行内容按预设模式互相错位，护符游戏内效果真正改变。
+    验证（bash 脚本 src\_test\verify_acc_full.sh）：442 字段全内容
+    多重集守恒、115/116 行内容换位、改动严格限定在目标行内。
+
 1.2.9 与 Elden Ring Randomizer（thefifthmatt）兼容修复：
   · 内嵌 SoulsFormats 的 DCX.DecompressDCXZSTD 原本断言 ZSTD 版本字节
     必须为 21(0x15)（游戏原版/SoulsFormats 写入值）；428 随机化器输出

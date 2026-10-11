@@ -56,7 +56,7 @@
                     <CheckBox x:Name="ChkGoods" Content="道具（消耗品 / 可反复使用）" IsChecked="True"
                               ToolTip="交换道具的 behaviorId、spEffectCategory、动作等"/>
                     <CheckBox x:Name="ChkEquip" Content="装备效果（护符 / 武器）" IsChecked="True"
-                              ToolTip="交换护符与武器附带的特殊效果 ID"/>
+                              ToolTip="交换护符与武器附带的特殊效果 ID。护符的能力加成由游戏按 ID 约定查找 SpEffect（310000+（护符ID-1000）×10），这些约定效果行会被整行内容错位——护符在游戏里会真正生效别的护符的效果（1.2.10 起）。"/>
                 </WrapPanel>
                 <WrapPanel>
                     <CheckBox x:Name="ChkGoodsSafe" Content="道具只随机「可直接使用且带效果」的（推荐）" IsChecked="True"

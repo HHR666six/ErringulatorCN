@@ -171,9 +171,12 @@ namespace ErringulatorCN.Core
         // ---- 道具排除名单 ----
 
         /// <summary>
-        /// 沿用 Erringulator 的 BlacklistGoods：圣杯瓶系列、灵药圣杯瓶、望远镜、提灯、
-        /// 灵马哨笛、记忆的恩惠、多人联机道具、姿势动作、赠礼道具等。
+        /// 道具黑名单——与原版 Erringulator 的 BlacklistGoods
+        /// （RandomizerData / GeneratorData.json）逐项完全一致（共 208 项）：
+        /// 圣杯瓶系列、灵药圣杯瓶、望远镜、提灯、灵马哨笛、记忆的恩惠、
+        /// 多人联机道具、姿势动作、赠礼道具等。
         /// 这些道具的效果一旦被错位，游戏功能会直接损坏（无法召唤灵马、无法回血等）。
+        /// 注意：维护本清单时请与原版保持同步，不要随意增删。
         /// </summary>
         private static readonly HashSet<int> GoodsBlacklist = new HashSet<int>
         {
@@ -184,12 +187,13 @@ namespace ErringulatorCN.Core
             115, 130, 135, 150, 166,
             170, 171, 172, 174, 175, 178, 179, 180, 181, 182, 183, 184,
             250, 251,
-            // 红/蓝圣杯瓶全等级（上游黑名单覆盖 1000-1075 整段）
+            // 红/蓝圣杯瓶全等级。注意：与原版完全一致地只收录
+            // 1000-1025 与 1050-1075（1.2.10 起删除了原版没有的中间号段
+            // 1026-1049——该号段在 1.16 里并不存在，删除无任何行为影响，
+            // 但保证了与原版黑名单逐项相同）。
             1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009,
             1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019,
-            1020, 1021, 1022, 1023, 1024, 1025, 1026, 1027, 1028, 1029,
-            1030, 1031, 1032, 1033, 1034, 1035, 1036, 1037, 1038, 1039,
-            1040, 1041, 1042, 1043, 1044, 1045, 1046, 1047, 1048, 1049,
+            1020, 1021, 1022, 1023, 1024, 1025,
             1050, 1051, 1052, 1053, 1054, 1055, 1056, 1057, 1058, 1059,
             1060, 1061, 1062, 1063, 1064, 1065, 1066, 1067, 1068, 1069,
             1070, 1071, 1072, 1073, 1074, 1075,
@@ -279,8 +283,14 @@ namespace ErringulatorCN.Core
         }
 
         /// <summary>
-        /// 保守模式判定：只有"真的能直接使用"且"带明确使用效果"的道具才参与错位。
+        /// 保守模式判定：只有"带明确使用效果"的可直接使用道具才参与错位。
         /// 排除素材、笔记、地图、露滴、钥匙/内容物、未实装条目，以及黑名单道具。
+        ///
+        /// 1.2.10 起：不再要求 goodsUseAnim &gt; 0——部分真正可用的消耗品
+        /// （苔药 900-960、干肝 1150-1180、生肉丸、DLC 药膳等 19 件）的
+        /// 使用动作字段就是 0，但带真实效果（refId_default 等），应当参与。
+        /// 判定改为「有明确效果即纳入；254/255 占位动作仍排除」——既无动作
+        /// 又无效果的素材/杂项（211 行）依旧被排除在外。
         /// </summary>
         private static bool IsGoodsEligible(PARAM.Row row)
         {
@@ -289,11 +299,8 @@ namespace ErringulatorCN.Core
 
             if (!GoodsUsableTypes.Contains((int)GoodsInt(row, "goodsType"))) return false;
 
-            // goodsUseAnim == 0 表示道具不可直接使用（素材、制作笔记、地图、收集品等）
-            long anim = GoodsInt(row, "goodsUseAnim");
-            if (anim <= 0) return false;
-
             // 254/255 是"未实装/不可用"的占位动作
+            long anim = GoodsInt(row, "goodsUseAnim");
             if (anim >= 254) return false;
 
             // 必须带明确的使用效果，否则交换没有意义
@@ -593,6 +600,16 @@ namespace ErringulatorCN.Core
                 if (pr != null) report.Params.Add(pr);
             }
 
+            // ---- 附加：护符效果（按 ID 约定错位 SpEffect 效果行）----
+            // 护符的真实效果不在 EquipParamAccessory 的字段里，而是由游戏按 ID
+            // 约定查找 SpEffect：SpEffectID = 310000 + (护符ID - 1000) × 10。
+            // 只搬 refId 等字段无法改变游戏内效果，必须错位这些约定效果行本身。
+            if (_settings.RandomizeEquipment && !_settings.NoOp)
+            {
+                ParamReport pr = ProcessAccessoryEffects(byName, rng, report);
+                if (pr != null) report.Params.Add(pr);
+            }
+
             // ---- 写回并加密 ----
             Report("正在重新打包并加密……", totalSteps - 2, totalSteps);
             Log("正在重新打包并加密……");
@@ -842,6 +859,92 @@ namespace ErringulatorCN.Core
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 护符效果错位（真正生效的那一步）。
+        ///
+        /// 实测确认：护符的能力加成（如玛丽卡的烙印 +3 心智/智力/信仰/感应、
+        /// 烈风的护符 +5 力气）并不写在 EquipParamAccessory 的 refId 等字段里，
+        /// 而是由游戏按 ID 约定查找 SpEffect：
+        ///     SpEffectID = 310000 + (护符ID − 1000) × 10
+        /// （1.16 实测：157 个护符中 116 个存在这样的约定效果行，一一对应。）
+        ///
+        /// 因此这里把这些约定效果行的整行内容互相错位——某个护符会真正
+        /// 获得另一个护符的能力加成，游戏内效果随之改变。
+        /// </summary>
+        private ParamReport ProcessAccessoryEffects(Dictionary<string, BinderFile> byName,
+            Random rng, RandomizeReport report)
+        {
+            if (!byName.TryGetValue("EquipParamAccessory", out BinderFile accFile) ||
+                !byName.TryGetValue("SpEffectParam", out BinderFile spFile))
+            {
+                report.Warnings.Add("护符效果错位：缺少 EquipParamAccessory 或 SpEffectParam 参数表，已跳过。");
+                return null;
+            }
+
+            PARAM acc = PARAM.Read(accFile.Bytes);
+            PARAM sp = PARAM.Read(spFile.Bytes);
+            if (!acc.ApplyParamdefCarefully(_paramdefs) || !sp.ApplyParamdefCarefully(_paramdefs))
+            {
+                report.Warnings.Add("护符效果错位：EquipParamAccessory / SpEffectParam 无匹配 paramdef，已跳过。");
+                return null;
+            }
+
+            var spById = new Dictionary<int, PARAM.Row>();
+            foreach (PARAM.Row r in sp.Rows)
+                if (r.ID > 0 && !spById.ContainsKey(r.ID)) spById[r.ID] = r;
+
+            // 收集 (护符ID, 约定效果行) 配对，按护符 ID 排序保证确定性
+            var pairs = new List<(int AccId, PARAM.Row Row)>();
+            foreach (PARAM.Row a in acc.Rows)
+            {
+                if (a.ID < 1000) continue;
+                long spId = 310000L + (a.ID - 1000L) * 10L;
+                if (spId > int.MaxValue) continue;
+                if (spById.TryGetValue((int)spId, out PARAM.Row er))
+                    pairs.Add((a.ID, er));
+            }
+            pairs.Sort((x, y) => x.AccId.CompareTo(y.AccId));
+
+            if (pairs.Count < 2)
+            {
+                report.Warnings.Add($"护符效果错位：按 ID 约定只找到 {pairs.Count} 个效果行，已跳过。");
+                Log("跳过 护符效果错位（约定效果行不足）");
+                return null;
+            }
+
+            int[] perm = Permute.BuildPermutation(pairs.Count, _settings.Mode, _settings.ShiftAmount, rng);
+
+            // 整行内容错位（ID 不动，行的全部单元格互相交换）
+            var backup = new object[pairs.Count][];
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                PARAM.Row row = pairs[i].Row;
+                var cells = new object[row.Cells.Count];
+                for (int j = 0; j < cells.Length; j++) cells[j] = row.Cells[j].Value;
+                backup[i] = cells;
+            }
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                object[] src = backup[perm[i]];
+                var cells = pairs[i].Row.Cells;
+                for (int j = 0; j < cells.Count && j < src.Length; j++) cells[j].Value = src[j];
+            }
+
+            spFile.Bytes = sp.Write();
+            Log($"已随机化 护符效果（SpEffect 约定行错位）：{pairs.Count} 个护符的效果行内容互相错位" +
+                $"（例：护符 {pairs[0].AccId} 现在生效 SpEffect {pairs[0].Row.ID} 位置上的其他护符效果）。");
+
+            return new ParamReport
+            {
+                ParamName = "SpEffectParam",
+                ParamType = sp.ParamType,
+                Description = "护符效果（按 ID 约定错位效果行）",
+                TotalRows = sp.Rows.Count,
+                AffectedRows = pairs.Count,
+                AffectedFields = sp.AppliedParamdef.Fields.Count,
+            };
         }
 
         /// <summary>
