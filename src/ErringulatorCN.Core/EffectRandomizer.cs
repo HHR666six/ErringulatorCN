@@ -209,10 +209,13 @@ namespace ErringulatorCN.Core
         /// <summary>
         /// 允许参与错位的 goodsType。排除掉明确"不可直接使用/非效果物品"的类型：
         /// 1 = 合成素材，10 = 地图，12 = 制作笔记，14 = 灵药露滴，16/17/18 = 收集品与任务物品。
+        /// 3 = 追忆类道具（接肢的追忆、死龙的追忆、DLC 各追忆等 25 件，全表仅此类使用）——
+        /// 应要求自 1.2.8 起参与随机化：它们的整套使用字段会与其他道具互相错位。
         /// </summary>
         private static readonly HashSet<int> GoodsUsableTypes = new HashSet<int>
         {
             0, 2, 4, 5, 9, 11, 15, 19, 27, 28,
+            3,  // 追忆（Remembrance）类道具
         };
 
         // ==================== 对话数据健康检查 ====================
@@ -306,12 +309,13 @@ namespace ErringulatorCN.Core
             return hasEffect;
         }
 
-        /// <summary>非保守模式：沿用 Erringulator 的 goodsType == 0 过滤（仍排除黑名单）。</summary>
+        /// <summary>非保守模式：沿用 Erringulator 的 goodsType == 0 过滤（仍排除黑名单）；追忆（type 3）同样参与。</summary>
         private static bool IsGoodsAnyType0(PARAM.Row row)
         {
             if (row.ID <= 0) return false;
             if (GoodsBlacklist.Contains(row.ID)) return false;
-            return GoodsInt(row, "goodsType") == 0;
+            long type = GoodsInt(row, "goodsType");
+            return type == 0 || type == 3;
         }
 
         private List<TargetSpec> BuildTargets()

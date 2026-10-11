@@ -45,6 +45,11 @@ tools\DumpBuddies（打印两种指纹与 90200 动画行分布）。
 自检予以保留，用于识别被旧版搬乱过的输入）。节奏安全版仍可用
 backup_1.1.0\ErringulatorCN_1.2.5.exe。
 
+1.2.8 追忆类道具参与随机：GoodsUsableTypes 增加 goodsType=3
+（全表恰为 25 件追忆：本体 2950-2964 + DLC 2002900-2010），
+IsGoodsAnyType0（非保守模式）同步放行 type 3。道具池 234→259 行。
+追忆的兑换逻辑按物品 ID 判定、不受影响；使用字段随池错位。
+
 1.2.7 全面验证与内部优化：
   · 三个工程零警告构建（Core NoWarn 抑制第三方 SYSLIB0021 与有意
     使用的 CA2255；App/CLI 本就零警告）；
