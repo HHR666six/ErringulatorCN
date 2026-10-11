@@ -6,6 +6,17 @@ Elden Ring Summon Randomizer v1.0.8 的召唤物随机化。
 
 > 当前版本 **1.2.7**。程序标题栏与运行日志会显示版本号。
 
+## 下载（开箱即用）
+
+不想自己构建？到 **[Releases](https://github.com/HHR666six/ErringulatorCN/releases)** 下载最新
+`ErringulatorCN-x.y.z.zip`（约 88 MB，含主程序 / 命令行工具 / 参数表定义 / 使用说明）：
+
+1. 解压到任意目录（**不要**在压缩包里直接运行）
+2. 双击 `ErringulatorCN.exe`（自包含单文件，无需安装 .NET 运行时）
+3. 选择游戏目录（Steam 安装自动探测）→ 勾选随机化内容 → 开始 → 重启游戏
+
+> 修改 `regulation.bin` 前请先备份；修改后的文件严禁联机使用。
+
 ## 功能一览
 
 ### 效果错位随机化
