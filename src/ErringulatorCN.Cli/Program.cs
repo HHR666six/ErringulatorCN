@@ -73,6 +73,11 @@ namespace ErringulatorCN.Cli
     --no-summon-costs       不重掷骨灰召唤消耗（FP/HP）
     --talks                 启用 NPC 对话随机（说别人的台词）
     --weapon-motion         启用武器动作模组随机（用别的武器动画）
+    --attack-elements       装备效果的子项：攻击元素错位（魔/火/雷/暗行内换位 + SFX 变体）
+                            需同时开启装备效果（默认开启；用 --no-equip 会使其自动跳过）
+    --enemy-resist          启用敌人伤害抗性随机（异常状态抗性 + 元素减伤同类换主）
+    --resist-boss           敌人抗性随机也包含 Boss 类敌人（默认仅非 Boss）
+    --resist-nonboss-only   敌人抗性随机仅限非 Boss（默认行为，可省略）
     --summon-fplo N / --summon-fphi N    骨灰 FP 消耗范围（默认 30..60）
     --summon-hpchance N     骨灰改用 HP 消耗的几率 %（默认 10）
     --summon-hplo N / --summon-hphi N    骨灰 HP 消耗范围（默认 300..600）
@@ -305,6 +310,12 @@ namespace ErringulatorCN.Cli
                 Summons = summon,
                 RandomizeTalks = Flag(o, "talks"),
                 RandomizeWeaponMoveset = Flag(o, "weapon-motion"),
+                RandomizeAttackElements = Flag(o, "attack-elements"),
+                RandomizeEnemyResist = Flag(o, "enemy-resist"),
+                EnemyResistScope = (Flag(o, "resist-nonboss-only") && !Flag(o, "resist-boss")
+                        ? EnemyResistScope.NonBoss
+                        : Flag(o, "resist-boss") ? (EnemyResistScope.NonBoss | EnemyResistScope.Boss)
+                        : EnemyResistScope.NonBoss),
                 IncludeNpcSpells = Flag(o, "npc-spells"),
                 RandomizeCost = !Flag(o, "no-cost"),
                 GoodsConservativeMode = !Flag(o, "goods-all"),

@@ -4,11 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using SoulsFormats;
 
-// 用法：DumpBuddies <原版 regulation.bin> [paramdefs 目录]
-//   打印给定 regulation.bin 的 TalkParam 节奏指纹 / 动画行分布，
-//   用于判断某文件是否被旧版对话随机搬乱过。
-string vanillaPath = args.Length > 0 ? args[0] : "regulation.bin";
-string defDir = args.Length > 1 ? args[1] : "paramdefs";
+string defDir = @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\paramdefs";
+string vanillaPath = @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\src\_test\vanilla\regulation.bin";
 
 var defs = new List<PARAMDEF>();
 foreach (string f in Directory.GetFiles(defDir, "*.xml"))
@@ -70,6 +67,6 @@ void Report(string label, string path)
         Console.WriteLine($"    id={r.ID} anim={V(r, "talkAnimationId")} msg={V(r, "msgId")} voice={V(r, "voiceId")} force={B(r, "isForceDisp")}");
 }
 
-// 第 1 个参数 = 待体检的 regulation.bin；若给出第 2 个参数则是可选的对照文件。
-Report("待体检文件", vanillaPath);
-if (args.Length > 2) Report("对照文件", args[2]);
+Report("原版（测试副本）", vanillaPath);
+Report("游戏目录当前文件", @"D:\steam\steamapps\common\ELDEN RING\Game\regulation.bin");
+Report("游戏目录备份 .bak", @"D:\steam\steamapps\common\ELDEN RING\Game\regulation.bin.bak");

@@ -2,8 +2,10 @@
 using System.IO;
 using SoulsFormats;
 
-string regPath = args.Length > 0 ? args[0] : "regulation.bin";
-string defDir = args.Length > 1 ? args[1] : "paramdefs";
+string regPath = args.Length > 0 ? args[0]
+    : @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\output\regulation.bin.bak";
+string defDir = args.Length > 1 ? args[1]
+    : @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\paramdefs";
 
 Console.WriteLine($"regulation: {regPath}");
 Console.WriteLine($"paramdefs : {defDir}");

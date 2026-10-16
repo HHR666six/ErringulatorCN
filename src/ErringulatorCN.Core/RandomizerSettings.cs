@@ -26,6 +26,20 @@ namespace ErringulatorCN.Core
         SameSegment = 1,
     }
 
+    /// <summary>敌人抗性随机的参与范围（可按位组合）。</summary>
+    [Flags]
+    public enum EnemyResistScope
+    {
+        /// <summary>不参与。</summary>
+        None = 0,
+
+        /// <summary>非 Boss 敌人（npcType==0 且 isSoulGetByBoss==0）。</summary>
+        NonBoss = 1,
+
+        /// <summary>Boss 敌人（npcType==1 或 isSoulGetByBoss==1）。</summary>
+        Boss = 2,
+    }
+
     /// <summary>随机化设置。所有开关默认开启，对应界面上的勾选项。</summary>
     public sealed class RandomizerSettings
     {
@@ -69,6 +83,53 @@ namespace ErringulatorCN.Core
         /// 于是 NPC 会说出别人的台词、配上别人的口型与动作。
         /// </summary>
         public bool RandomizeTalks { get; set; }
+
+        /// <summary>
+        /// 攻击元素错位——<b>「装备效果（护符/武器）」的子项</b>（1.3.0 新增）。
+        ///
+        /// 为什么挂在装备效果之下：元素域在武器层已由「武器效果」覆盖
+        /// （WeaponEffectGroup 会错位 spAttribute / spAtkcategory /
+        /// attackElementCorrectId / spAttributeVariationValue），但攻击判定层
+        /// （AtkParam_Pc / AtkParam_Npc 的 atkMag / atkFire / atkThun / atkDark
+        /// 及各自的 atkXxxCorrection）此前完全没被涉及。本子项把元素错位延伸到
+        /// 这一层：每行四个非物理元素槽连同修正一起在<b>行内旋转</b>——
+        /// 刀砍出火、法术劈出雷。判定/动画/特效/音效全部不动，只换实际生效的
+        /// 元素伤害类型；纯行内置换，不跨行、不引用其它表，零引用风险。
+        ///
+        /// 与 Elden Ring Randomizer 完全正交：它只随机物品/掉落/商店/敌人摆放，
+        /// 从不改动攻击参数表。
+        ///
+        /// 生效条件：必须同时开启 <see cref="RandomizeEquipment"/>（父项），
+        /// 否则本子项自动跳过——与界面上的父子勾选关系一致。
+        ///
+        /// 1.3.1 增强：spAttributeVariationValue（SFX 变体值）一并随元素旋转，
+        /// 命中特效的元素视觉变体跟随伤害类型走，错位的视觉表现更明显。
+        /// </summary>
+        public bool RandomizeAttackElements { get; set; }
+
+        /// <summary>
+        /// 敌人伤害抗性随机（1.3.1 新增）。
+        ///
+        /// 数据侧实测（1.16）：NpcParam 的 def_mag/fire/thunder/dark 全表恒 100
+        /// （无差异）；真实抗性差异写在两组字段上：
+        ///   · XXGuardResist（毒/疫病/出血/咒/睡眠/发狂/冻伤）：常态生效的
+        ///     异常状态抗性（值域 20/60/70/80 等，各 160+ 行非零）；
+        ///   · magGuard/fire/thun/darkGuardCutRate：防御姿态时的元素减伤率
+        ///     （40/50/70/80 等，各 130~400 行非零）。
+        ///
+        /// 做法：这两组字段在「同类字段内」做<b>行间错位</b>——每个敌人的
+        /// 抗性数值换成另一个敌人的（池内多重集守恒，不增不减）。
+        /// 不改结构、不改引用，零坏档风险。
+        ///
+        /// Boss 判定：npcType==1（Boss 敌人类型）或 isSoulGetByBoss==1
+        /// （Boss 掉魂标记）任一命中即视为 Boss 行。
+        /// 范围由 <see cref="EnemyResistScope"/> 控制。
+        /// </summary>
+        public bool RandomizeEnemyResist { get; set; }
+
+        /// <summary>敌人抗性随机的范围：哪些敌人参与（可组合）。</summary>
+        public EnemyResistScope EnemyResistScope { get; set; } =
+            EnemyResistScope.NonBoss | EnemyResistScope.Boss;
 
         /// <summary>
         /// 武器动作模组随机：把 EquipParamWeapon 的动画套组字段

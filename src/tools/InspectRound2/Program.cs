@@ -5,10 +5,9 @@
 using System.IO;
 using SoulsFormats;
 
-// 用法：InspectRound2 <原始 regulation.bin> <生成 regulation.bin> [paramdefs 目录]
-string a = args.Length > 0 ? args[0] : "regulation_a.bin";
-string b = args.Length > 1 ? args[1] : "regulation_b.bin";
-string defDir = args.Length > 2 ? args[2] : "paramdefs";
+string defDir = @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\paramdefs";
+string a = args.Length > 0 ? args[0] : @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\src\_test\vanilla\regulation.bin";
+string b = args.Length > 1 ? args[1] : @"D:\dowlond\Erringulator 0.1.1\ErringulatorCN\src\_test\out_talk\regulation.bin";
 
 var defs = new List<PARAMDEF>();
 foreach (string f in Directory.GetFiles(defDir, "*.xml"))

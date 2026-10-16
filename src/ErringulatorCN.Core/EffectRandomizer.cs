@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -608,6 +609,29 @@ namespace ErringulatorCN.Core
             {
                 ParamReport pr = ProcessAccessoryEffects(byName, rng, report);
                 if (pr != null) report.Params.Add(pr);
+
+                // ---- 子项：攻击元素错位（装备效果的延伸）----
+                // 父项「武器效果」已在武器层错位元素字段（spAttribute /
+                // spAtkcategory / attackElementCorrectId / spAttributeVariationValue）；
+                // 本子项把元素错位延伸到「攻击判定层」——AtkParam_Pc / AtkParam_Npc
+                // 每行的魔/火/雷/暗伤害槽连同各自攻击修正在行内旋转。
+                // 判定/动画/特效/音效不动，只换实际生效的元素伤害类型。
+                // 与 Elden Ring Randomizer 正交（它从不改攻击参数表）。
+                if (_settings.RandomizeAttackElements)
+                {
+                    ParamReport prAtk = ProcessAttackElements(byName, rng, report);
+                    if (prAtk != null) report.Params.Add(prAtk);
+                }
+            }
+
+            // ---- 附加：敌人伤害抗性随机（1.3.1 新增，独立开关 + Boss/非Boss 范围）----
+            // NpcParam 的异常状态抗性（XXGuardResist）与元素减伤
+            //（mag/fire/thun/darkGuardCutRate）在同类字段内行间错位；
+            // Boss 与非 Boss 分池独立置换，互不交叉。
+            if (_settings.RandomizeEnemyResist && !_settings.NoOp)
+            {
+                ParamReport prRes = ProcessEnemyResist(byName, rng, report);
+                if (prRes != null) report.Params.Add(prRes);
             }
 
             // ---- 写回并加密 ----
@@ -1137,6 +1161,336 @@ namespace ErringulatorCN.Core
         }
 
         // ==================== paramdef 载入 ====================
+
+        /// <summary>
+        /// 攻击元素错位（装备效果的子项）——AtkParam_Pc / AtkParam_Npc。
+        ///
+        /// 机制（数据侧 1.16 实测）：
+        ///   · AtkParam 每行是一次攻击判定，带 4 个非物理元素伤害槽——
+        ///     atkMag（魔力）/ atkFire（火焰）/ atkThun（雷电）/ atkDark（暗）
+        ///     ——以及对应的百分比修正 atkXxxCorrection。
+        ///   · 游戏按「哪槽有值就按哪类伤害结算」；攻击的动画、判定、特效、音效
+        ///     由武器/法术与行为自身决定，不随伤害槽变化。因此把四个槽连同修正
+        ///     在行内整体旋转，就能实现「刀砍出火、法术劈雷」，而表现全部保持原样。
+        ///   · 纯行内置换：不跨行、不引用其它表，天然零引用风险；行内四槽的
+        ///     数值多重集守恒（总伤害规模不变，只换类型）。
+        ///     只处理「四槽中至少一个非 0」的行（多数行靠武器基础值结算，自动跳过）。
+        ///
+        /// 1.3.1 增强——spAttributeVariationValue（SFX 变体值，u8）：
+        ///   · 它与 spAttribute 组合决定命中特效的元素视觉变体（paramdef 描述：
+        ///     「特殊属性と組み合わせてSFX、SEにバリエーションを持たせる」）。
+        ///   · 单字段无法行内旋转；改为在「同表内带值的行」之间做行间循环移位
+        ///     （ShiftAmount 参与的确定性置换）——每个有变体的判定行换成别的
+        ///     判定行的变体值，命中特效的元素视觉随伤害换位而更明显。
+        ///     它是纯表现参数（不参与任何伤害计算），换值不产生引用风险。
+        /// </summary>
+        private ParamReport ProcessAttackElements(Dictionary<string, BinderFile> byName,
+            Random rng, RandomizeReport report)
+        {
+            string[] dmgFields = { "atkMag", "atkFire", "atkThun", "atkDark" };
+            string[] corrFields = { "atkMagCorrection", "atkFireCorrection", "atkThunCorrection", "atkDarkCorrection" };
+            const string variationField = "spAttributeVariationValue";
+
+            int totalTouched = 0;
+            int totalVarTouched = 0;
+            int totalRows = 0;
+            bool anyWritten = false;
+
+            foreach (string tbl in new[] { "AtkParam_Pc", "AtkParam_Npc" })
+            {
+                if (!byName.TryGetValue(tbl, out BinderFile file))
+                {
+                    report.Warnings.Add($"攻击元素错位：缺少 {tbl}，该表已跳过。");
+                    continue;
+                }
+
+                PARAM atk = PARAM.Read(file.Bytes);
+                if (!atk.ApplyParamdefCarefully(_paramdefs))
+                {
+                    report.Warnings.Add($"攻击元素错位：{tbl} 无匹配 paramdef，已跳过。");
+                    continue;
+                }
+
+                var fieldIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (int i = 0; i < atk.AppliedParamdef.Fields.Count; i++)
+                    fieldIndex[atk.AppliedParamdef.Fields[i].InternalName] = i;
+
+                if (!dmgFields.All(fieldIndex.ContainsKey) || !corrFields.All(fieldIndex.ContainsKey))
+                {
+                    report.Warnings.Add($"攻击元素错位：{tbl} 缺少元素伤害或修正字段，已跳过。");
+                    continue;
+                }
+                bool hasVariation = fieldIndex.ContainsKey(variationField);
+
+                int touched = 0;
+                foreach (PARAM.Row r in atk.Rows)
+                {
+                    if (r.ID <= 0) continue;
+
+                    var dmg = new double[4];
+                    var corr = new double[4];
+                    bool anyDmg = false;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        dmg[i] = GoodsDouble(r, dmgFields[i]);
+                        corr[i] = GoodsDouble(r, corrFields[i]);
+                        if (dmg[i] != 0.0) anyDmg = true;
+                    }
+                    if (!anyDmg) continue;   // 纯基础值行不动
+
+                    // 行内旋转 1~3 位（保证至少一个槽变化）
+                    int shift = 1 + rng.Next(3);
+                    bool changed = false;
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int src = (i + shift) % 4;
+                        if (WriteCellDouble(r.Cells[fieldIndex[dmgFields[i]]], dmg[src])) changed = true;
+                        if (WriteCellDouble(r.Cells[fieldIndex[corrFields[i]]], corr[src])) changed = true;
+                    }
+
+                    if (changed) touched++;
+                }
+
+                // ---- 1.3.1：spAttributeVariationValue 行间循环移位 ----
+                int varTouched = 0;
+                if (hasVariation)
+                {
+                    int varIdx = fieldIndex[variationField];
+                    var varRows = new List<(PARAM.Row Row, double Value)>();
+                    foreach (PARAM.Row r in atk.Rows)
+                    {
+                        if (r.ID <= 0) continue;
+                        double v = GoodsDouble(r, variationField);
+                        if (v > 0) varRows.Add((r, v));   // 只动带变体值的行（0 = 无变体，保持）
+                    }
+                    if (varRows.Count >= 2)
+                    {
+                        int[] perm = Permute.BuildPermutation(varRows.Count, _settings.Mode, _settings.ShiftAmount, rng);
+                        var backup = varRows.Select(x => x.Value).ToArray();
+                        for (int i = 0; i < varRows.Count; i++)
+                        {
+                            if (WriteCellDouble(varRows[i].Row.Cells[varIdx], backup[perm[i]])) varTouched++;
+                        }
+                    }
+                }
+
+                if (touched > 0 || varTouched > 0)
+                {
+                    file.Bytes = atk.Write();
+                    anyWritten = true;
+                    totalRows += atk.Rows.Count;
+                    totalTouched += touched;
+                    totalVarTouched += varTouched;
+                    Log($"已随机化 攻击元素（{tbl}）：{touched} 行元素槽行内换位" +
+                        (varTouched > 0 ? $"，{varTouched} 行 SFX 变体值换位（视觉表现）" : "") + "。");
+                }
+                else
+                {
+                    Log($"跳过 攻击元素（{tbl}）：没有带元素伤害的行。");
+                }
+            }
+
+            if (!anyWritten)
+            {
+                Log("跳过 攻击元素错位（没有可处理的行）");
+                return null;
+            }
+
+            var pr = new ParamReport
+            {
+                ParamName = "AtkParam_Pc + AtkParam_Npc",
+                ParamType = "ATK_PARAM_ST",
+                Description = "攻击元素错位（装备效果子项：魔/火/雷/暗行内换位 + SFX 变体换位）",
+                TotalRows = totalRows,
+                AffectedRows = totalTouched,
+                AffectedFields = hasVariationFieldCount(dmgFields, corrFields, true),   // 4 伤害槽 + 4 修正槽 + 1 变体
+            };
+            pr.AppliedFields.AddRange(dmgFields);
+            pr.AppliedFields.AddRange(corrFields);
+            pr.AppliedFields.Add(variationField);
+            return pr;
+        }
+
+        /// <summary>小的本地辅助：统一计算报告里的字段数。</summary>
+        private static int hasVariationFieldCount(string[] dmg, string[] corr, bool hasVar) =>
+            dmg.Length + corr.Length + (hasVar ? 1 : 0);
+
+        /// <summary>
+        /// 敌人伤害抗性随机（1.3.1 新增）——NpcParam。
+        ///
+        /// 数据侧实测（1.16）：
+        ///   · NpcParam 的 def_mag/fire/thunder/dark 全表恒 100——本体无差异，
+        ///     不是本功能的对象。
+        ///   · 真实抗性差异在两组字段上：
+        ///     (a) XXGuardResist（poison/disease/blood/curse/sleep/madness/freeze）：
+        ///         常态生效的异常状态抗性（百分比减伤，值域 20/60/70/80 等）；
+        ///     (b) magGuardCutRate / fireGuardCutRate / thunGuardCutRate / darkGuardCutRate：
+        ///         防御姿态时的元素减伤率（40/50/70/80 等）。
+        ///
+        /// 做法：两组字段各自在「同类字段内」做行间错位——敌人 A 的毒抗换成
+        /// 敌人 B 的毒抗，敌人 C 的火抗减伤换成敌人 D 的……每个同类字段的
+        /// 池内多重集守恒（不增不减），结构与引用完全不动。
+        ///
+        /// Boss 分池：npcType==1 或 isSoulGetByBoss==1 视为 Boss 行；
+        /// Boss 池与非 Boss 池各自独立置换（Boss 只跟 Boss 交换抗性），
+        /// 由 EnemyResistScope 控制哪些池参与。
+        /// </summary>
+        private ParamReport ProcessEnemyResist(Dictionary<string, BinderFile> byName,
+            Random rng, RandomizeReport report)
+        {
+            if (!byName.TryGetValue("NpcParam", out BinderFile npcFile))
+            {
+                report.Warnings.Add("敌人抗性随机：缺少 NpcParam，已跳过。");
+                return null;
+            }
+
+            PARAM npc = PARAM.Read(npcFile.Bytes);
+            if (!npc.ApplyParamdefCarefully(_paramdefs))
+            {
+                report.Warnings.Add("敌人抗性随机：NpcParam 无匹配 paramdef，已跳过。");
+                return null;
+            }
+
+            var fieldIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < npc.AppliedParamdef.Fields.Count; i++)
+                fieldIndex[npc.AppliedParamdef.Fields[i].InternalName] = i;
+
+            // 异常状态抗性（常态生效）+ 元素减伤（防御时生效）
+            string[] resistFields =
+            {
+                "poisonGuardResist", "diseaseGuardResist", "bloodGuardResist",
+                "curseGuardResist", "sleepGuardResist", "madnessGuardResist", "freezeGuardResist",
+                "magGuardCutRate", "fireGuardCutRate", "thunGuardCutRate", "darkGuardCutRate",
+            };
+            var usable = resistFields.Where(fieldIndex.ContainsKey).ToArray();
+            if (usable.Length == 0)
+            {
+                report.Warnings.Add("敌人抗性随机：NpcParam 缺少抗性字段，已跳过。");
+                return null;
+            }
+            foreach (string missing in resistFields.Where(f => !fieldIndex.ContainsKey(f)))
+                Log($"敌人抗性随机：字段 {missing} 在本版 paramdef 中不存在，已跳过该字段。");
+
+            // Boss 判定
+            static bool IsBossRow(PARAM.Row r)
+            {
+                long nt, sb;
+                try { nt = Convert.ToInt64(r["npcType"].Value); } catch { nt = 0; }
+                try { sb = Convert.ToInt64(r["isSoulGetByBoss"].Value); } catch { sb = 0; }
+                return nt == 1 || sb == 1;
+            }
+
+            var scope = _settings.EnemyResistScope;
+            bool wantBoss = (scope & EnemyResistScope.Boss) != 0;
+            bool wantNonBoss = (scope & EnemyResistScope.NonBoss) != 0;
+            if (!wantBoss && !wantNonBoss)
+            {
+                Log("跳过 敌人抗性随机（范围未选择任何敌人）");
+                return null;
+            }
+
+            int touched = 0;
+            int bossTouched = 0, nonBossTouched = 0;
+
+            foreach (string f in usable)
+            {
+                int idx = fieldIndex[f];
+                var bossPool = new List<(PARAM.Row Row, double Value)>();
+                var normalPool = new List<(PARAM.Row Row, double Value)>();
+
+                foreach (PARAM.Row r in npc.Rows)
+                {
+                    if (r.ID <= 0) continue;
+                    if ((r.Name ?? "").StartsWith(SummonRandomizerEngine.CloneNamePrefix, StringComparison.Ordinal))
+                        continue;   // 召唤物克隆行不参与（它们会被召唤引擎重建）
+                    double v = GoodsDouble(r, f);
+                    if (v <= 0) continue;   // 0 = 无抗性标记，保持原样
+                    if (IsBossRow(r)) bossPool.Add((r, v));
+                    else normalPool.Add((r, v));
+                }
+
+                int before = touched;
+                if (wantBoss && bossPool.Count >= 2)
+                {
+                    int[] perm = Permute.BuildPermutation(bossPool.Count, _settings.Mode, _settings.ShiftAmount, rng);
+                    var backup = bossPool.Select(x => x.Value).ToArray();
+                    for (int i = 0; i < bossPool.Count; i++)
+                        if (WriteCellDouble(bossPool[i].Row.Cells[idx], backup[perm[i]])) touched++;
+                    bossTouched += touched - before;
+                    before = touched;
+                }
+                if (wantNonBoss && normalPool.Count >= 2)
+                {
+                    int[] perm = Permute.BuildPermutation(normalPool.Count, _settings.Mode, _settings.ShiftAmount, rng);
+                    var backup = normalPool.Select(x => x.Value).ToArray();
+                    for (int i = 0; i < normalPool.Count; i++)
+                        if (WriteCellDouble(normalPool[i].Row.Cells[idx], backup[perm[i]])) touched++;
+                    nonBossTouched += touched - before;
+                }
+            }
+
+            if (touched == 0)
+            {
+                Log("跳过 敌人抗性随机（没有带抗性值的行）");
+                return null;
+            }
+
+            npcFile.Bytes = npc.Write();
+
+            string scopeDesc = (wantBoss && wantNonBoss) ? "Boss + 非Boss"
+                : wantBoss ? "仅 Boss" : "仅非 Boss";
+            Log($"已随机化 敌人抗性（NpcParam，{scopeDesc}）：{usable.Length} 类抗性字段行间错位，" +
+                $"Boss 池改动 {bossTouched} 处，非 Boss 池改动 {nonBossTouched} 处。");
+
+            var pr = new ParamReport
+            {
+                ParamName = "NpcParam",
+                ParamType = npc.ParamType,
+                Description = $"敌人伤害抗性随机（{scopeDesc}：异常状态抗性 + 元素减伤同类换主）",
+                TotalRows = npc.Rows.Count,
+                AffectedRows = touched,
+                AffectedFields = usable.Length,
+            };
+            pr.AppliedFields.AddRange(usable);
+            return pr;
+        }
+
+        /// <summary>安全读 double（单元格可能为 int/uint/float 等类型）。</summary>
+        private static double GoodsDouble(PARAM.Row row, string field)
+        {
+            try { return Convert.ToDouble(row[field].Value, CultureInfo.InvariantCulture); }
+            catch { return 0.0; }
+        }
+
+        /// <summary>按目标单元格的原生类型写入浮点值；值未变化时返回 false。</summary>
+        private static bool WriteCellDouble(PARAM.Cell cell, double value)
+        {
+            try
+            {
+                object cur = cell.Value;
+                if (cur == null) return false;
+                if (Math.Abs(Convert.ToDouble(cur, CultureInfo.InvariantCulture) - value) < 1e-9) return false;
+
+                switch (cur)
+                {
+                    case float _: cell.Value = (float)value; return true;
+                    case double _: cell.Value = value; return true;
+                    case byte _: cell.Value = unchecked((byte)(long)Math.Round(value)); return true;
+                    case sbyte _: cell.Value = unchecked((sbyte)(long)Math.Round(value)); return true;
+                    case short _: cell.Value = unchecked((short)(long)Math.Round(value)); return true;
+                    case ushort _: cell.Value = unchecked((ushort)(long)Math.Round(value)); return true;
+                    case int _: cell.Value = unchecked((int)(long)Math.Round(value)); return true;
+                    case uint _: cell.Value = unchecked((uint)(long)Math.Round(value)); return true;
+                    case long _: cell.Value = (long)Math.Round(value); return true;
+                    default:
+                        cell.Value = Convert.ChangeType(value, cur.GetType(), CultureInfo.InvariantCulture);
+                        return true;
+                }
+            }
+            catch { return false; }
+        }
+
         public static string ResolveParamdefDir(string explicitDir = null)
         {
             var candidates = new List<string>();

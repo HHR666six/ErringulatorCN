@@ -50,6 +50,8 @@ namespace ErringulatorCN.App
             LoadState();
             _uiReady = true;
             UpdateSummonUiEnabled();
+            UpdateEquipUiEnabled();
+            UpdateResistUiEnabled();
             Closing += (s, e) => SaveState();
         }
 
@@ -213,6 +215,36 @@ namespace ErringulatorCN.App
             {
                 MessageBox.Show(this, ex.ToString(), "恢复失败");
             }
+        }
+
+        // ==================== 装备效果子项联动 ====================
+
+        private void EquipUi_Changed(object sender, RoutedEventArgs e) => UpdateEquipUiEnabled();
+
+        /// <summary>
+        /// 装备效果的子项（攻击元素错位）只有在父项开启时才可用——
+        /// 与 Core 里「子项嵌在 RandomizeEquipment 代码块内」的生效条件一致。
+        /// </summary>
+        private void UpdateEquipUiEnabled()
+        {
+            if (!_uiReady || ChkAtkElement == null || ChkEquip == null) return;
+            ChkAtkElement.IsEnabled = ChkEquip.IsChecked == true;
+        }
+
+        // ==================== 敌人抗性子项联动 ====================
+
+        private void ResistUi_Changed(object sender, RoutedEventArgs e) => UpdateResistUiEnabled();
+
+        /// <summary>
+        /// 敌人抗性随机（1.3.1）：父开关关闭时两个范围子项一起禁用；
+        /// 两个子项可以同时勾选（Boss 和非 Boss 各自独立分池）。
+        /// </summary>
+        private void UpdateResistUiEnabled()
+        {
+            if (!_uiReady || ChkEnemyResist == null) return;
+            bool enabled = ChkEnemyResist.IsChecked == true;
+            ChkResistNonBoss.IsEnabled = enabled;
+            ChkResistBoss.IsEnabled = enabled;
         }
 
         // ==================== 召唤物设置界面 ====================
@@ -448,6 +480,12 @@ namespace ErringulatorCN.App
             public bool NpcSpells { get; set; }
             public bool Talks { get; set; }
             public bool WeaponMotion { get; set; }
+            /// <summary>装备效果的子项：攻击元素错位（1.3.0）。</summary>
+            public bool AtkElement { get; set; }
+            /// <summary>敌人伤害抗性随机（1.3.1）。</summary>
+            public bool EnemyResist { get; set; }
+            public bool ResistNonBoss { get; set; } = true;
+            public bool ResistBoss { get; set; }
             public SummonSettings Summons { get; set; }
         }
 
@@ -474,6 +512,10 @@ namespace ErringulatorCN.App
                     NpcSpells = ChkNpcSpells.IsChecked == true,
                     Talks = ChkTalks.IsChecked == true,
                     WeaponMotion = ChkWeaponMotion.IsChecked == true,
+                    AtkElement = ChkAtkElement.IsChecked == true,
+                    EnemyResist = ChkEnemyResist.IsChecked == true,
+                    ResistNonBoss = ChkResistNonBoss.IsChecked == true,
+                    ResistBoss = ChkResistBoss.IsChecked == true,
                     Summons = ReadSummonSettingsFromUi(),
                 };
                 Directory.CreateDirectory(Path.GetDirectoryName(StatePath));
@@ -510,6 +552,10 @@ namespace ErringulatorCN.App
                 ChkNpcSpells.IsChecked = st.NpcSpells;
                 ChkTalks.IsChecked = st.Talks;
                 ChkWeaponMotion.IsChecked = st.WeaponMotion;
+                ChkAtkElement.IsChecked = st.AtkElement;
+                ChkEnemyResist.IsChecked = st.EnemyResist;
+                ChkResistNonBoss.IsChecked = st.ResistNonBoss;
+                ChkResistBoss.IsChecked = st.ResistBoss;
                 if (st.Summons != null)
                 {
                     st.Summons.Clamp();
@@ -557,6 +603,10 @@ namespace ErringulatorCN.App
                 RandomizeWeaponAshLink = ChkWeaponAsh.IsChecked == true,
                 RandomizeTalks = ChkTalks.IsChecked == true,
                 RandomizeWeaponMoveset = ChkWeaponMotion.IsChecked == true,
+                RandomizeAttackElements = ChkAtkElement.IsChecked == true,
+                RandomizeEnemyResist = ChkEnemyResist.IsChecked == true,
+                EnemyResistScope = (ChkResistNonBoss.IsChecked == true ? EnemyResistScope.NonBoss : EnemyResistScope.None)
+                                 | (ChkResistBoss.IsChecked == true ? EnemyResistScope.Boss : EnemyResistScope.None),
                 IncludeNpcSpells = ChkNpcSpells.IsChecked == true,
                 Mode = RadShift.IsChecked == true ? ErringMode.Shift
                      : RadReverse.IsChecked == true ? ErringMode.Reverse
@@ -568,6 +618,7 @@ namespace ErringulatorCN.App
                 !settings.RandomizeGoods && !settings.RandomizeEquipment &&
                 !settings.RandomizeWeaponAshLink && !settings.RandomizeSummons &&
                 !settings.RandomizeTalks && !settings.RandomizeWeaponMoveset &&
+                !settings.RandomizeEnemyResist &&
                 !settings.UnlockAshOfWarForAllWeapons)
             {
                 MessageBox.Show(this, "请至少勾选一项要随机化的内容。", "提示",

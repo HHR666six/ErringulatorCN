@@ -4,250 +4,269 @@
         Title="艾尔登法环 效果随机化器 — ErringulatorCN" Height="840" Width="1000"
         MinHeight="620" MinWidth="860"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI">
-    <Grid Margin="14">
+        Background="{StaticResource Brush.Window}"
+        FontFamily="{StaticResource Font.Ui}">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 内容区：可滚动（召唤物面板展开时不会把按钮挤出窗口） -->
+        <!-- ============ 内容区（可滚动）============ -->
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
-        <StackPanel>
-
-        <!-- 标题 -->
-        <StackPanel Margin="0,0,0,10">
-            <TextBlock Style="{StaticResource Title}" Text="艾尔登法环 效果随机化器"/>
-            <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
-                       Text="把魔法、祷告、战灰、道具、装备的使用效果互相错位交换——名称与图标不变，实际效果变成别人的（以撒的结合「错误道具」式随机）；并完整集成 Elden Ring Summon Randomizer（骨灰换敌 / 多召 / 驯服克隆 / 强化倍率 / 六套预设）。支持游戏版本 1.16.x（含黄金树之影）。"/>
-        </StackPanel>
-
-        <!-- 目录 -->
-        <GroupBox Header="一、目录设置">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="游戏目录" VerticalAlignment="Center" Margin="0,0,8,6"/>
-                <TextBox Grid.Row="0" Grid.Column="1" x:Name="InputBox" Margin="0,0,8,6"/>
-                <Button Grid.Row="0" Grid.Column="2" Content="浏览…" Click="BrowseInput" Margin="0,0,0,6"/>
-
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="输出目录" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OutputBox" Margin="0,0,8,0"/>
-                <Button Grid.Row="1" Grid.Column="2" Content="浏览…" Click="BrowseOutput"/>
-            </Grid>
-        </GroupBox>
-
-        <!-- 随机化项 -->
-        <GroupBox Header="二、随机化内容">
             <StackPanel>
-                <WrapPanel>
-                    <CheckBox x:Name="ChkMagic" Content="魔法与祷告" IsChecked="True"
-                              ToolTip="交换 behaviorId、spEffectCategory、refId 等效果链字段，释放时打出别人的法术"/>
-                    <CheckBox x:Name="ChkAsh" Content="战灰" IsChecked="True"
-                              ToolTip="交换战灰的动作类型与速度类型"/>
-                    <CheckBox x:Name="ChkGoods" Content="道具（消耗品 / 可反复使用）" IsChecked="True"
-                              ToolTip="交换道具的 behaviorId、spEffectCategory、动作等"/>
-                    <CheckBox x:Name="ChkEquip" Content="装备效果（护符 / 武器）" IsChecked="True"
-                              ToolTip="交换护符与武器附带的特殊效果 ID。护符的能力加成由游戏按 ID 约定查找 SpEffect（310000+（护符ID-1000）×10），这些约定效果行会被整行内容错位——护符在游戏里会真正生效别的护符的效果（1.2.10 起）。"/>
-                </WrapPanel>
-                <WrapPanel>
-                    <CheckBox x:Name="ChkGoodsSafe" Content="道具只随机「可直接使用且带效果」的（推荐）" IsChecked="True"
-                              ToolTip="排除素材、制作笔记、地图、灵露滴、钥匙/内容物、未实装条目，以及圣杯瓶/灵马哨笛/望远镜/提灯等特殊道具。取消勾选会让几乎所有道具参与，极易破坏游戏功能。"/>
-                    <CheckBox x:Name="ChkUnlockAsh" Content="解除战灰武器限制（任意武器可用任意战灰）" IsChecked="True"
-                              ToolTip="把每个战灰 gem 的 44 个 canMountWep_* 开关全部打开（即 Unlocked Ashes of War 的做法）。随机化战灰后不会出现「这把武器用不了这个战灰」的情况。"/>
-                </WrapPanel>
 
-                <!-- 二级菜单：召唤物随机化 -->
-                <Expander x:Name="ExpSummon" Header="▸ 召唤物随机化（骨灰召唤出的敌人）— 完整功能（移植 Elden Ring Summon Randomizer v1.0.8）"
-                          IsExpanded="True" Margin="0,6,0,2" Padding="6"
-                          ToolTip="完整模式：随机换敌 + 多召（一次召出多个敌人）+ 驯服克隆 + 仿身泪滴特例 + 骨灰消耗重掷 + 强化倍率。展开可调。">
-                    <ScrollViewer VerticalScrollBarVisibility="Disabled">
-                        <StackPanel>
+                <!-- 标题区 -->
+                <StackPanel Margin="2,0,2,14">
+                    <TextBlock Style="{StaticResource Title}" Text="艾尔登法环 效果随机化器"/>
+                    <TextBlock Style="{StaticResource SubTitle}" Margin="0,4,0,0"
+                               Text="魔法、祷告、战灰、道具、装备的效果随机化——名称与图标不变，实际效果变成别人的。已集成 Elden Ring Summon Randomizer，支持游戏版本 1.16.x（含黄金树之影）。"/>
+                </StackPanel>
+
+                <!-- ============ 一、目录设置 ============ -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardHeader}" Text="📁 目录设置"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="游戏目录" VerticalAlignment="Center" Margin="0,0,10,6"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="InputBox" Margin="0,0,8,6"/>
+                            <Button Grid.Row="0" Grid.Column="2" Content="浏览…" Click="BrowseInput" Margin="0,0,0,6"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="输出目录" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="OutputBox" Margin="0,0,8,0"/>
+                            <Button Grid.Row="1" Grid.Column="2" Content="浏览…" Click="BrowseOutput"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ============ 二、随机化内容 ============ -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardHeader}" Text="⚙ 随机化内容"/>
+
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkMagic" Content="魔法与祷告" IsChecked="True"
+                                      ToolTip="释放法术时打出别人的法术效果。"/>
+                            <CheckBox x:Name="ChkAsh" Content="战灰" IsChecked="True"
+                                      ToolTip="战灰的动作与速度换成别的战灰。"/>
+                            <CheckBox x:Name="ChkGoods" Content="道具（消耗品 / 可反复使用）" IsChecked="True"
+                                      ToolTip="道具的使用效果换成别的道具——喝药可能触发别的效果。"/>
+                            <CheckBox x:Name="ChkEquip" Content="装备效果（护符 / 武器）" IsChecked="True"
+                                      Checked="EquipUi_Changed" Unchecked="EquipUi_Changed"
+                                      ToolTip="护符与武器附带的效果互相换主：护符会真正生效别的护符的能力。"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkAtkElement" Content="↳ 攻击元素也错位（判定层魔/火/雷/暗 + 视觉变体）" IsChecked="False"
+                                      ToolTip="武器的攻击元素也错位——刀可能砍出火、法术可能劈出雷，命中特效随之变化。需勾选「装备效果」。"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkGoodsSafe" Content="道具只随机「可直接使用且带效果」的（推荐）" IsChecked="True"
+                                      ToolTip="只让真正能使用且带效果的道具参与（推荐）。取消后几乎所有道具都会参与，容易破坏游戏功能。"/>
+                            <CheckBox x:Name="ChkUnlockAsh" Content="解除战灰武器限制（任意武器可用任意战灰）" IsChecked="True"
+                                      ToolTip="任意武器都能装任意战灰。"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkEnemyResist" Content="敌人伤害抗性随机（1.3.1）" IsChecked="False"
+                                      Checked="ResistUi_Changed" Unchecked="ResistUi_Changed" FontWeight="Bold"
+                                      ToolTip="敌人对毒、出血、冻伤等异常状态与各元素伤害的抗性随机换主——怕毒的敌人可能不再怕毒，弱火的 BOSS 可能变成弱雷。"/>
+                            <CheckBox x:Name="ChkResistNonBoss" Content="↳ 非Boss类敌人" IsChecked="True"
+                                      Checked="ResistUi_Changed" Unchecked="ResistUi_Changed"
+                                      ToolTip="杂兵、精英与野生动物参与抗性换主。"/>
+                            <CheckBox x:Name="ChkResistBoss" Content="↳ Boss类敌人" IsChecked="False"
+                                      Checked="ResistUi_Changed" Unchecked="ResistUi_Changed"
+                                      ToolTip="BOSS 参与抗性换主，只与其他 BOSS 互换。"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkCost" Content="同时随机化资源消耗（MP / 耐力 / 使用次数）" IsChecked="True"
+                                      ToolTip="MP、耐力、使用次数等消耗也一起错位。"/>
+                            <CheckBox x:Name="ChkWeaponAsh" Content="附加：随机化武器所挂载的战灰" IsChecked="False"
+                                      ToolTip="武器挂载的战灰也互换（更混乱）。"/>
+                            <CheckBox x:Name="ChkNpcSpells" Content="包含 NPC 专用法术（不建议）" IsChecked="False"
+                                      ToolTip="敌方法术也参与错位，可能造成异常行为。"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkTalks" Content="NPC 对话随机（说别人的台词）" IsChecked="False"
+                                      ToolTip="NPC 会说别人的台词，动作与口型一并跟随。"/>
+                            <CheckBox x:Name="ChkWeaponMotion" Content="武器动作模组随机（用别的武器动画）" IsChecked="False"
+                                      ToolTip="武器攻击动作互换——大剑可能挥出匕首的动作，攻击距离与手感随之变化。"/>
+                        </WrapPanel>
+                        <WrapPanel>
                             <CheckBox x:Name="ChkSummons" Content="启用召唤物随机化" IsChecked="True" FontWeight="Bold"
-                                      Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"/>
+                                      Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
+                                      ToolTip="骨灰召唤出的敌人随机化：换敌、多召、驯服，倍率可调。展开下方可详细设置。"/>
+                        </WrapPanel>
 
-                            <WrapPanel Margin="0,2,0,0">
-                                <RadioButton x:Name="RadSummonFull" Content="完整（换敌 + 多召 + 驯服，推荐）" IsChecked="True"
-                                             Checked="SummonUi_Changed" ToolTip="移植原版 Summon Randomizer 的全套算法。随机换敌、可多召、把敌人驯服成友方克隆。"/>
-                                <RadioButton x:Name="RadSummonMild" Content="温和（只把现有召唤物成对错位）"
-                                             Checked="SummonUi_Changed" ToolTip="1.0.x 的旧行为：不新增/克隆任何行，只把各召唤条目的「敌人 + AI」成对互换。"/>
-                            </WrapPanel>
+                        <!-- 二级面板：召唤物随机化 -->
+                        <Expander x:Name="ExpSummon" Header="召唤物随机化详细设置（换敌 / 多召 / 驯服 / 倍率）"
+                                  IsExpanded="False" Margin="0,6,0,2" Padding="6"
+                                  ToolTip="骨灰换敌、多召、驯服与倍率等详细设置。">
+                            <ScrollViewer VerticalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <WrapPanel Margin="0,2,0,0">
+                                        <RadioButton x:Name="RadSummonFull" Content="完整（换敌 + 多召 + 驯服，推荐）" IsChecked="True"
+                                                     Checked="SummonUi_Changed" ToolTip="随机换敌、一次可召多个、把敌人驯服为友方。"/>
+                                        <RadioButton x:Name="RadSummonMild" Content="温和（只把现有召唤物成对错位）"
+                                                     Checked="SummonUi_Changed" ToolTip="只把现有骨灰召唤的敌人互换，不改变数量。"/>
+                                    </WrapPanel>
 
-                            <!-- ============ 完整模式 ============ -->
-                            <StackPanel x:Name="PanelSummonFull">
-                                <WrapPanel Margin="0,2,0,0">
-                                    <TextBlock Text="预设：" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <ComboBox x:Name="CmbSummonPreset" Width="168" VerticalAlignment="Center"
-                                              SelectionChanged="SummonPreset_Selected"
-                                              ToolTip="六套预设数值与原版 Summon Randomizer 完全一致。选择后立即套用。"/>
-                                    <TextBlock x:Name="TxtPresetDesc" Style="{StaticResource Hint}" VerticalAlignment="Center"
-                                               Margin="8,0,0,0" MaxWidth="560"/>
-                                </WrapPanel>
+                                    <!-- ============ 完整模式 ============ -->
+                                    <StackPanel x:Name="PanelSummonFull">
+                                        <WrapPanel Margin="0,2,0,0">
+                                            <TextBlock Text="预设：" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <ComboBox x:Name="CmbSummonPreset" Width="168" VerticalAlignment="Center"
+                                                      SelectionChanged="SummonPreset_Selected"
+                                                      ToolTip="六套预设，与原版 Summon Randomizer 数值一致，选择后立即套用。"/>
+                                            <TextBlock x:Name="TxtPresetDesc" Style="{StaticResource Hint}" VerticalAlignment="Center"
+                                                       Margin="8,0,0,0" MaxWidth="560"/>
+                                        </WrapPanel>
 
-                                <WrapPanel Margin="0,2,0,0">
-                                    <TextBlock Text="设置串：" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBox x:Name="TxtSummonSettings" Width="380" VerticalAlignment="Center"
-                                             ToolTip="与原版 Summon Randomizer 的「Settings Preset」字符串完全互通，可直接互抄。"/>
-                                    <Button Content="导出" Click="ExportSummonSettings" Margin="6,0,6,0"
-                                            ToolTip="把当前设置导出为原版格式的设置串（也便于分享/记录）。"/>
-                                    <Button Content="应用" Click="ApplySummonSettingsText"
-                                            ToolTip="把文本框里的设置串（可以是原版随机器里复制的）套用到当前设置。"/>
-                                </WrapPanel>
+                                        <WrapPanel Margin="0,2,0,0">
+                                            <TextBlock Text="设置串：" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBox x:Name="TxtSummonSettings" Width="380" VerticalAlignment="Center"
+                                                     ToolTip="与原版 Summon Randomizer 的设置串互通，可互相复制。"/>
+                                            <Button Content="导出" Click="ExportSummonSettings" Margin="6,0,6,0"
+                                                    ToolTip="导出为原版格式的设置串。"/>
+                                            <Button Content="应用" Click="ApplySummonSettingsText"
+                                                    ToolTip="套用文本框里的设置串。"/>
+                                        </WrapPanel>
 
-                                <WrapPanel Margin="0,4,0,0">
-                                    <TextBlock Text="初始多召几率 %" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                    <TextBox x:Name="TxtInitChance" Width="44" Text="50" ToolTip="一个骨灰一次召出多于 1 个敌人的概率。"/>
-                                    <TextBlock Text="追加几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtAddChance" Width="44" Text="50" ToolTip="已经召出 2 个以上时，再追加第 3、4、5… 个的概率。"/>
-                                    <TextBlock Text="多召上限" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtMultiMax" Width="40" Text="5" ToolTip="一次最多召出的数量（1 = 不多召；上限 9 → 最多 10 个）。"/>
-                                    <TextBlock Text="重复几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtDupeChance" Width="44" Text="80" ToolTip="第 2+ 个多召与第 1 个是同一种敌人的概率。"/>
-                                    <TextBlock Text="变体复用 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtVariantChance" Width="44" Text="20" ToolTip="某个敌人被选过后，仍允许选它同族变体的概率（关闭骨灰重复时生效）。"/>
-                                </WrapPanel>
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <TextBlock Text="初始多召几率 %" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBox x:Name="TxtInitChance" Width="44" Text="50" ToolTip="一次召出多于 1 个敌人的概率。"/>
+                                            <TextBlock Text="追加几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtAddChance" Width="44" Text="50" ToolTip="已召出 2 个以上时，再追加一个的概率。"/>
+                                            <TextBlock Text="多召上限" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtMultiMax" Width="40" Text="5" ToolTip="一次最多召出的数量（1 = 不多召）。"/>
+                                            <TextBlock Text="重复几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtDupeChance" Width="44" Text="80" ToolTip="第 2 个起与第 1 个是同一种敌人的概率。"/>
+                                            <TextBlock Text="变体复用 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtVariantChance" Width="44" Text="20" ToolTip="允许选到同族变体的概率。"/>
+                                        </WrapPanel>
 
-                                <WrapPanel Margin="0,2,0,0">
-                                    <CheckBox x:Name="ChkBuddyReuse" Content="允许骨灰重复（同一敌人可被多个骨灰选用）"
-                                              ToolTip="关闭时尽量让每个骨灰召唤不同的敌人（原版默认关闭）。"/>
-                                    <CheckBox x:Name="ChkForbidLarge" Content="禁止大体积多召" IsChecked="True"
-                                              ToolTip="多召（第 2 个起）不选碰撞体很大的敌人，避免一群巨型敌人挤在一起造成物理异常。"/>
-                                </WrapPanel>
+                                        <WrapPanel Margin="0,2,0,0">
+                                            <CheckBox x:Name="ChkBuddyReuse" Content="允许骨灰重复（同一敌人可被多个骨灰选用）"
+                                                      ToolTip="关闭时尽量让每个骨灰召唤不同的敌人。"/>
+                                            <CheckBox x:Name="ChkForbidLarge" Content="禁止大体积多召" IsChecked="True"
+                                                      ToolTip="多召时不选体积过大的敌人，避免挤在一起。"/>
+                                        </WrapPanel>
 
-                                <WrapPanel Margin="0,4,0,0">
-                                    <CheckBox x:Name="ChkAshCosts" Content="重掷骨灰召唤消耗" IsChecked="True"
-                                              Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
-                                              ToolTip="把骨灰的召唤消耗重新随机（与原版一致：整百行重掷，子行跟随）。"/>
-                                    <TextBlock Text="FP" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                    <TextBox x:Name="TxtFpCostMin" Width="40" Text="30" ToolTip="FP 消耗下限。"/>
-                                    <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
-                                    <TextBox x:Name="TxtFpCostMax" Width="40" Text="60" ToolTip="FP 消耗上限（不含）。"/>
-                                    <TextBlock Text="改用 HP 几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtHpCostChance" Width="40" Text="10" ToolTip="骨灰改为消耗 HP 的概率。"/>
-                                    <TextBlock Text="HP" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                    <TextBox x:Name="TxtHpCostMin" Width="44" Text="300" ToolTip="HP 消耗下限。"/>
-                                    <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
-                                    <TextBox x:Name="TxtHpCostMax" Width="44" Text="600" ToolTip="HP 消耗上限（不含）。"/>
-                                </WrapPanel>
-                            </StackPanel>
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <CheckBox x:Name="ChkAshCosts" Content="重掷骨灰召唤消耗" IsChecked="True"
+                                                      Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
+                                                      ToolTip="骨灰的召唤消耗（FP / HP）重新随机。"/>
+                                            <TextBlock Text="FP" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBox x:Name="TxtFpCostMin" Width="40" Text="30" ToolTip="FP 消耗下限。"/>
+                                            <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
+                                            <TextBox x:Name="TxtFpCostMax" Width="40" Text="60" ToolTip="FP 消耗上限（不含）。"/>
+                                            <TextBlock Text="改用 HP 几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtHpCostChance" Width="40" Text="10" ToolTip="骨灰改为消耗 HP 的概率。"/>
+                                            <TextBlock Text="HP" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                            <TextBox x:Name="TxtHpCostMin" Width="44" Text="300" ToolTip="HP 消耗下限。"/>
+                                            <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
+                                            <TextBox x:Name="TxtHpCostMax" Width="44" Text="600" ToolTip="HP 消耗上限（不含）。"/>
+                                        </WrapPanel>
+                                    </StackPanel>
 
-                            <!-- ============ 温和模式 ============ -->
-                            <StackPanel x:Name="PanelSummonMild" Visibility="Collapsed">
-                                <WrapPanel Margin="0,2,0,0">
-                                    <TextBlock Text="召唤池范围：" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <RadioButton x:Name="RadSummonAll" Content="全部召唤条目互相错位（最混乱）" IsChecked="True"
-                                                 ToolTip="把所有有效召唤条目放在一个池子里错位。可能让早期骨灰召唤出后期/DLC 敌人。"/>
-                                    <RadioButton x:Name="RadSummonSame" Content="仅同段位内错位（较温和）"
-                                                 ToolTip="按 Buddy ID 段位分组，只在同段位内错位，强度变化更小。"/>
-                                </WrapPanel>
-                                <WrapPanel Margin="0,2,0,0">
-                                    <CheckBox x:Name="ChkSummonRidden" Content="同时错位骑乘形态" IsChecked="True"
-                                              ToolTip="BuddyParam 的 npcParamId_ridden / npcThinkParamId_ridden 也一起错位。"/>
-                                </WrapPanel>
-                            </StackPanel>
+                                    <!-- ============ 温和模式 ============ -->
+                                    <StackPanel x:Name="PanelSummonMild" Visibility="Collapsed">
+                                        <WrapPanel Margin="0,2,0,0">
+                                            <TextBlock Text="召唤池范围：" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <RadioButton x:Name="RadSummonAll" Content="全部召唤条目互相错位（最混乱）" IsChecked="True"
+                                                         ToolTip="所有骨灰共用一个池，可能召出后期 / DLC 敌人。"/>
+                                            <RadioButton x:Name="RadSummonSame" Content="仅同段位内错位（较温和）"
+                                                         ToolTip="只在同段位内互换，强度变化更小。"/>
+                                        </WrapPanel>
+                                        <WrapPanel Margin="0,2,0,0">
+                                            <CheckBox x:Name="ChkSummonRidden" Content="同时错位骑乘形态" IsChecked="True"
+                                                      ToolTip="骑乘形态的敌人也一起错位。"/>
+                                        </WrapPanel>
+                                    </StackPanel>
 
-                            <!-- ============ 倍率（两种模式共用） ============ -->
-                            <Separator Margin="0,8,0,4"/>
-                            <WrapPanel>
-                                <CheckBox x:Name="ChkSummonMulti" Content="应用召唤物倍率" IsChecked="True"
-                                          Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
-                                          ToolTip="血量/伤害倍率以「加法」落在 SpEffect 290000-290010（骨灰强化曲线）上，与原版一致，与强化加成叠加。"/>
-                                <TextBlock Text="血量倍率" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBox x:Name="TxtHpMul" Width="48" Text="2.0" ToolTip="2.0 = 召唤物最大血量 +100%（与骨灰强化加成叠加，不是覆盖）。"/>
-                                <TextBlock Text="伤害倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                <TextBox x:Name="TxtDmgMul" Width="48" Text="3.0" ToolTip="3.0 = 召唤物攻击 +200%（物/魔/火/雷/暗，与强化加成叠加）。"/>
-                                <TextBlock Text="FP 倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                <TextBox x:Name="TxtFpMul" Width="48" Text="1.0" ToolTip="只改召唤物自己的 MP 上限（完整模式=克隆体；温和模式=被引用的 NPC）。1.0 = 不变。"/>
-                            </WrapPanel>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
-                                       Text="倍率 1.0 = 不变。完整模式的骨灰条目会同时获得 290000-290010 强化链（与原版一致），所以新召唤出来的敌人血量/攻击按上面的倍率增长。"/>
+                                    <!-- ============ 倍率（两种模式共用）============ -->
+                                    <Separator Margin="0,8,0,4"/>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="ChkSummonMulti" Content="应用召唤物倍率" IsChecked="True"
+                                                  Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
+                                                  ToolTip="按倍率调整召唤物的血量与伤害（与骨灰强化叠加）。"/>
+                                        <TextBlock Text="血量倍率" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="TxtHpMul" Width="48" Text="2.0" ToolTip="2.0 = 血量 +100%（与骨灰强化叠加）。"/>
+                                        <TextBlock Text="伤害倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                        <TextBox x:Name="TxtDmgMul" Width="48" Text="3.0" ToolTip="3.0 = 攻击 +200%（与骨灰强化叠加）。"/>
+                                        <TextBlock Text="FP 倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                        <TextBox x:Name="TxtFpMul" Width="48" Text="1.0" ToolTip="召唤物的 MP 上限倍率，1.0 = 不变。"/>
+                                    </WrapPanel>
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                               Text="倍率 1.0 = 不变；调整后召唤出来的敌人按倍率成长。"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+
+                <!-- ============ 三、错位方式与种子 ============ -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardHeader}" Text="🎲 错位方式、种子与运行日志"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
+                            <RadioButton x:Name="RadShuffle" Content="完全洗牌（推荐，以撒式错位）" IsChecked="True" Margin="0,0,16,0"/>
+                            <RadioButton x:Name="RadShift" Content="顺移" Margin="0,0,16,0"/>
+                            <RadioButton x:Name="RadReverse" Content="倒序"/>
                         </StackPanel>
-                    </ScrollViewer>
-                </Expander>
-                <WrapPanel>
-                    <CheckBox x:Name="ChkCost" Content="同时随机化资源消耗（MP / 耐力 / 使用次数）" IsChecked="True"
-                              ToolTip="让消耗也错位；关闭后只错位效果本身，游戏更可控"/>
-                    <CheckBox x:Name="ChkWeaponAsh" Content="附加：随机化武器所挂载的战灰" IsChecked="False"
-                              ToolTip="更混乱，风险更高（可能出现武器没有可用战灰的情况）"/>
-                    <CheckBox x:Name="ChkNpcSpells" Content="包含 NPC 专用法术（不建议）" IsChecked="False"
-                              ToolTip="敌方法术也会被错位，容易造成异常行为"/>
-                </WrapPanel>
-                <WrapPanel>
-                    <CheckBox x:Name="ChkTalks" Content="NPC 对话随机（说别人的台词）" IsChecked="False"
-                              ToolTip="把 TalkParam 里每条对白的整套内容（台词/语音/口型/动作/触发事件）整体互相错位——NPC 会说出别人的台词，但每条对话依然完整可用。适合追求节目效果，与其他选项互不影响。"/>
-                    <CheckBox x:Name="ChkWeaponMotion" Content="武器动作模组随机（用别的武器动画）" IsChecked="False"
-                              ToolTip="把武器的动画套组（wepmotionCategory / 单手 / 双手变体）整体互相错位——大剑可能挥出匕首的动作。动作与判定成套搬家，战斗可用但非常魔性；攻击距离/手感会明显变化。"/>
-                </WrapPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="顺移位数" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="ShiftBox" Width="60" Text="1"/>
+                            <TextBlock Text="（仅在「顺移」时生效）" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="随机种子" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="SeedBox" Width="240"/>
+                            <TextBlock Text="（留空 = 自动生成；相同种子 + 相同设置 = 完全相同的结果）"
+                                       Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <TextBox x:Name="LogBox" IsReadOnly="True" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 FontSize="12" Background="#FAFAFC" Height="150"
+                                 Text="就绪。请确认游戏目录后点击「开始随机化」。&#x0a;"/>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
-        </GroupBox>
-
-        <!-- 选项 -->
-        <GroupBox Header="三、错位方式与种子">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <WrapPanel Grid.Row="0">
-                    <RadioButton x:Name="RadShuffle" Content="完全洗牌（推荐，以撒式错位）" IsChecked="True"/>
-                    <RadioButton x:Name="RadShift" Content="顺移"/>
-                    <RadioButton x:Name="RadReverse" Content="倒序"/>
-                </WrapPanel>
-
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,4">
-                    <TextBlock Text="顺移位数" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBox x:Name="ShiftBox" Width="60" Text="1"/>
-                    <TextBlock Text="（仅在「顺移」时生效）" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                </StackPanel>
-
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,8">
-                    <TextBlock Text="随机种子" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBox x:Name="SeedBox" Width="240"/>
-                    <TextBlock Text="（留空 = 自动生成；相同种子 + 相同设置 = 完全相同的结果）"
-                               Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                </StackPanel>
-
-                <TextBox Grid.Row="3" x:Name="LogBox" IsReadOnly="True" AcceptsReturn="True"
-                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                         FontSize="12" Background="#FAFAFA" Height="150"
-                         Text="就绪。请确认游戏目录后点击「开始随机化」。&#x0a;"/>
-            </Grid>
-        </GroupBox>
-
-        </StackPanel>
         </ScrollViewer>
 
-        <!-- 底部：进度 + 状态 + 按钮（固定不滚动） -->
-        <StackPanel Grid.Row="1" Margin="0,8,0,0">
-            <ProgressBar x:Name="Progress" Height="6" Margin="0,0,0,8"
-                         Minimum="0" Maximum="100" Value="0"/>
-            <Grid Margin="0,4,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+        <!-- ============ 底部：进度 + 状态 + 按钮（固定不滚动）============ -->
+        <StackPanel Grid.Row="1" Margin="0,10,0,0">
+            <Border Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="1" CornerRadius="10" Padding="16,10">
+                <StackPanel>
+                    <ProgressBar x:Name="Progress" Height="6" Margin="0,0,0,8"
+                                 Minimum="0" Maximum="100" Value="0"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center"
-                           Text="就绪" Foreground="#005A9E"/>
+                        <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center"
+                                   Text="就绪" Foreground="{StaticResource Brush.Accent}" FontWeight="Bold"/>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="BtnRestore" Content="恢复备份" Click="RestoreBackup"/>
-                    <Button x:Name="BtnOpen" Content="打开输出目录" Click="OpenOutput"/>
-                    <Button x:Name="BtnRun" Content="开始随机化" Click="RunRandomize"
-                            FontWeight="Bold" Padding="20,6" Background="#0078D4" Foreground="White"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BtnRestore" Content="恢复备份" Click="RestoreBackup"/>
+                            <Button x:Name="BtnOpen" Content="打开输出目录" Click="OpenOutput"/>
+                            <Button x:Name="BtnRun" Content="开始随机化" Click="RunRandomize" Style="{StaticResource BtnPrimary}"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
-            </Grid>
+            </Border>
         </StackPanel>
     </Grid>
 </Window>

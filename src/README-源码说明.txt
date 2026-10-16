@@ -1,5 +1,76 @@
-ErringulatorCN 源码工程说明（1.2.2）
+ErringulatorCN 源码工程说明（1.4.1）
 ====================================================
+1.4.1 界面文案精简（只改描述文字，不改任何行为）：
+  · 全部选项的 ToolTip 改为「效果导向」：说明游戏里会发生什么，不再描述
+    实现原理。例如敌人抗性项由「把异常状态抗性与元素减伤率在同类字段内
+    互相换主……只搬数值不搬结构，引用零风险」改为「敌人对毒、出血、冻伤等
+    异常状态与各元素伤害的抗性随机换主——怕毒的敌人可能不再怕毒，弱火的
+    BOSS 可能变成弱雷」。
+  · 同步移除描述中的字段名（behaviorId / refId / wepmotionCategory /
+    AtkParam / SpEffect ID 约定等）与参数 ID；召唤物面板标题与各输入项
+    提示一并精简。功能、默认值与验证结果均未改变。
+
+1.4.0 界面重设计（不改任何随机化逻辑）：
+  · App.xaml 建立设计令牌与控件模板：颜色令牌（Col.Accent #6C5CE7、
+    Col.Window #F3F4F8、Col.Card #FFFFFF、Col.Border #E1E3EC、三级文本色）、
+    字体令牌（Font.Ui / Font.Mono）、卡片样式（Card/BtnPrimary/CardHeader），
+    以及 TextBox / Button / ProgressBar / Expander 的 ControlTemplate 重写。
+  · MainWindow.xaml 由「GroupBox + 单列长滚动」改为三张分区卡片：
+    目录设置 / 随机化内容 / 错位方式、种子与运行日志；召唤物详细设置
+    Expander 默认收起（首屏无需滚动，实测内容底部仍有 15px 余量）。
+  · 兼容约束：全部 x:Name（46 个）与事件处理器（BrowseInput/BrowseOutput/
+    RunRandomize/RestoreBackup/OpenOutput/SummonUi_Changed/SummonPreset_Selected/
+    ExportSummonSettings/ApplySummonSettingsText/EquipUi_Changed/ResistUi_Changed）
+    保持不变，因此 MainWindow.xaml.cs 无需改动，settings.json 格式不变。
+  · 验证：src\_test\ui_verify.ps1——UI Automation 枚举真实控件树 + 像素取色：
+    断言 46 控件齐全、零横向溢出、首屏零滚动、父子联动两两一致、
+    窗口/主按钮/卡片底色与令牌逐位相符；默认态 75 元素、展开态 125 元素、
+    温和模式面板 3 控件按模式切换出现。
+
+1.3.1 两项新功能：
+  · 攻击元素错位增强——spAttributeVariationValue（SFX 变体值，u8，
+    paramdef 描述：「特殊属性と組み合わせてSFX、SEにバリエーションを
+    持たせる」）随错位一起换位。单字段无法行内旋转，改为在「同表内带值
+    的行」之间做行间置换（Permute.BuildPermutation）：每个带变体的判定
+    行换成别的判定行的变体值（实测 Pc 339 行 + Npc 867 行参与），
+    命中特效的元素视觉随伤害换位而更明显。纯表现参数，不参与伤害计算。
+  · 敌人伤害抗性随机（EffectRandomizer.ProcessEnemyResist）——
+    - 数据侧侦察结论（tools\InspectInterfaces 探针实测）：
+      NpcParam 的 def_mag/fire/thunder/dark 全表恒 100（无差异，非载体）；
+      真实差异在 XXGuardResist（毒/疫病/出血/咒/睡眠/发狂/冻伤，常态
+      生效的异常状态抗性）与 mag/fire/thun/darkGuardCutRate（防御姿态
+      元素减伤率）两组字段上。
+    - 实现：11 类字段各自在同类内做行间置换；Boss（npcType==1 或
+      isSoulGetByBoss==1）与非 Boss 分池独立置换，由
+      RandomizerSettings.EnemyResistScope（Flags 枚举）控制参与范围；
+      召唤物克隆行（buddyRando 前缀）不参与。
+    - UI：ChkEnemyResist 父开关 + ChkResistNonBoss / ChkResistBoss
+      两个子选项（可同时勾选；父关时子禁用，MainWindow.UpdateResistUiEnabled）。
+    - 验证器：tools\VerifyResist（多重集守恒 / 零值行零改动 / 非目标
+      字段零改动 / 仅非Boss 模式下 Boss 行零改动断言 / SFX 变体守恒 /
+      atkType 与 atkPhys 零改动）。回归脚本 src\_test\stability_res.ps1
+      （6 项：仅非Boss / Boss+非Boss / 确定性 / NoOp / 全功能自检 /
+      重复运行）全部通过。
+
+1.3.0 新增「攻击元素错位」——作为已有「装备效果」的子项：
+  · 覆盖核查的结论：元素域此前只做了一半——「武器效果」组
+    （WeaponEffectGroup）已在武器层错位 spAttribute / spAtkcategory /
+    attackElementCorrectId / spAttributeVariationValue，但攻击判定层
+    （AtkParam_Pc 11017 行、AtkParam_Npc 12855 行，各 211 字段）在 Core
+    里零引用。因此新能力不做成平行开关，而是把元素错位延伸到该层。
+  · 实现：EffectRandomizer.ProcessAttackElements——把每行的
+    atkMag / atkFire / atkThun / atkDark 连同 atkXxxCorrection 在
+    行内旋转（1~3 位）。判定/动画/特效/音效不动，只换实际生效的
+    元素伤害类型；纯行内置换，不跨行、不引用其它表。
+  · 父子联动（双层）：界面上 ChkAtkElement 随 ChkEquip 启用/禁用
+    （MainWindow.UpdateEquipUiEnabled）；Core 里子项代码嵌在
+    if (_settings.RandomizeEquipment && !_settings.NoOp) 分支内，
+    两层保证「父项关闭则子项必然不生效」。
+  · 验证工具：tools\VerifyAtkElements（不变量验证器，退出码可断言）；
+    回归脚本 src\_test\stability_ae.ps1（7 项：父开执行 / 父关跳过 /
+    不变量 / 确定性 / NoOp / 全功能自检 / 重复运行）。
+    实测：多重集 0 违例、池外行 0 改动、非目标字段 0 改动、atkPhys 0 改动。
+
 1.2.0 新增：NPC 对话随机（TalkParam 内容组错位）、武器动作模组随机
 （wepmotionCategory / 单手 / 双手变体整体错位），均通过 EffectRandomizer
 的 TargetSpec 机制实现，见 EffectRandomizer.cs 的 TalkContentGroup 与
