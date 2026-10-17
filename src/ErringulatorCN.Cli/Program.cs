@@ -78,6 +78,9 @@ namespace ErringulatorCN.Cli
     --enemy-resist          启用敌人伤害抗性随机（异常状态抗性 + 元素减伤同类换主）
     --resist-boss           敌人抗性随机也包含 Boss 类敌人（默认仅非 Boss）
     --resist-nonboss-only   敌人抗性随机仅限非 Boss（默认行为，可省略）
+    --enemy-toughness       启用敌人韧性随机（NpcParam 韧性档位索引成对错位）
+    --toughness-boss        敌人韧性随机也包含 Boss 类敌人（默认仅非 Boss）
+    --toughness-nonboss-only 敌人韧性随机仅限非 Boss（默认行为，可省略）
     --summon-fplo N / --summon-fphi N    骨灰 FP 消耗范围（默认 30..60）
     --summon-hpchance N     骨灰改用 HP 消耗的几率 %（默认 10）
     --summon-hplo N / --summon-hphi N    骨灰 HP 消耗范围（默认 300..600）
@@ -312,6 +315,11 @@ namespace ErringulatorCN.Cli
                 RandomizeWeaponMoveset = Flag(o, "weapon-motion"),
                 RandomizeAttackElements = Flag(o, "attack-elements"),
                 RandomizeEnemyResist = Flag(o, "enemy-resist"),
+                RandomizeEnemyToughness = Flag(o, "enemy-toughness"),
+                EnemyToughnessScope = (Flag(o, "toughness-nonboss-only") && !Flag(o, "toughness-boss")
+                        ? EnemyToughnessScope.NonBoss
+                        : Flag(o, "toughness-boss") ? (EnemyToughnessScope.NonBoss | EnemyToughnessScope.Boss)
+                        : EnemyToughnessScope.NonBoss),
                 EnemyResistScope = (Flag(o, "resist-nonboss-only") && !Flag(o, "resist-boss")
                         ? EnemyResistScope.NonBoss
                         : Flag(o, "resist-boss") ? (EnemyResistScope.NonBoss | EnemyResistScope.Boss)

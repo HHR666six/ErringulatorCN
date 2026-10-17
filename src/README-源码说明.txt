@@ -1,5 +1,26 @@
-ErringulatorCN 源码工程说明（1.4.1）
+ErringulatorCN 源码工程说明（1.6.0）
 ====================================================
+1.5.0 界面分组重构（只改 XAML，无逻辑改动）：
+  · MainWindow.xaml 的「随机化内容」卡由 7 行自由换行改为 3 个逻辑分组
+    （效果错位 / 敌人与战斗 / 扩展玩法），每组带主题色竖条标题。
+  · App.xaml 新增 SubOption 样式（缩进 + 淡色 + 更紧外边距）用于子选项；
+    CheckBox/RadioButton 增加手型光标；卡片下间距 10→8。
+  · 46 个控件名与事件处理器全部保持不变；ui_verify.ps1 通过（零横向溢出、
+    首屏余量 49px、主题色逐位相符）。截图改用 PrintWindow 取窗口内容，
+    不再依赖窗口是否在前台。
+1.6.0 新增敌人韧性随机：
+  · 数据侧侦察结论：NpcParam.toughness 不是数值而是 ToughnessParam 的行索引
+    （0→correctionRate 0 / 20→1.5 / 35→3.0；ToughnessParam 84 行，ID 0~251，
+    被敌人使用的只有 0/20/35 三档）。因此实现为「档位索引成对错位」，
+    而不是改 ToughnessParam 表本身（那张表是全局查表，改它会波及武器/防具）。
+  · EffectRandomizer.ProcessEnemyToughness：Boss/非Boss 分池置换
+    (toughness, toughnessRecoverCorrection) 成对值；Boss 判定提取为类级
+    IsBossRow 供抗性与韧性共用；召唤物克隆行不参与。
+  · 新增 tools/VerifyToughness（成对多重集守恒 / 池隔离 / 仅非Boss 时 Boss 行零改动）；
+    回归脚本 src/_test/stability_toughness.ps1 六项全过。
+  · UI：敌人与战斗组新增父开关 + 非Boss/Boss 两个子项，父子联动与抗性一致。
+
+
 1.4.1 界面文案精简（只改描述文字，不改任何行为）：
   · 全部选项的 ToolTip 改为「效果导向」：说明游戏里会发生什么，不再描述
     实现原理。例如敌人抗性项由「把异常状态抗性与元素减伤率在同类字段内

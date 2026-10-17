@@ -40,6 +40,20 @@ namespace ErringulatorCN.Core
         Boss = 2,
     }
 
+    /// <summary>敌人韧性随机的参与范围（可按位组合）。</summary>
+    [Flags]
+    public enum EnemyToughnessScope
+    {
+        /// <summary>不参与。</summary>
+        None = 0,
+
+        /// <summary>非 Boss 敌人。</summary>
+        NonBoss = 1,
+
+        /// <summary>Boss 敌人。</summary>
+        Boss = 2,
+    }
+
     /// <summary>随机化设置。所有开关默认开启，对应界面上的勾选项。</summary>
     public sealed class RandomizerSettings
     {
@@ -130,6 +144,27 @@ namespace ErringulatorCN.Core
         /// <summary>敌人抗性随机的范围：哪些敌人参与（可组合）。</summary>
         public EnemyResistScope EnemyResistScope { get; set; } =
             EnemyResistScope.NonBoss | EnemyResistScope.Boss;
+
+        /// <summary>
+        /// 敌人韧性随机（1.6.0 新增）。
+        ///
+        /// 数据侧实测（1.16）：NpcParam.toughness 是 <b>ToughnessParam 的行索引</b>——
+        /// 0 → correctionRate 0（无韧性）、20 → 1.5、35 → 3.0；ToughnessParam
+        /// 共 84 行（ID 0~251），是「韧性档位 → 补正倍率」的查表。
+        /// 全表仅 3 个档位被敌人使用：0（5511 个敌人）、20（41）、35（1492）。
+        ///
+        /// 做法：在「同一类敌人池」内错位每个敌人的韧性档位索引
+        /// （连同 toughnessRecoverCorrection 一起搬），于是原本没韧性的敌人
+        /// 可能扛住一击不被打断，原本 3.0 倍韧性的 BOSS 可能变得一碰就失衡。
+        /// 所有索引仍是原表中已存在的行，引用零风险；池内多重集守恒。
+        ///
+        /// Boss 判定与抗性随机一致：npcType==1 或 isSoulGetByBoss==1。
+        /// </summary>
+        public bool RandomizeEnemyToughness { get; set; }
+
+        /// <summary>敌人韧性随机的范围：哪些敌人参与（可组合）。</summary>
+        public EnemyToughnessScope EnemyToughnessScope { get; set; } =
+            EnemyToughnessScope.NonBoss | EnemyToughnessScope.Boss;
 
         /// <summary>
         /// 武器动作模组随机：把 EquipParamWeapon 的动画套组字段

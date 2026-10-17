@@ -54,6 +54,14 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource CardHeader}" Text="⚙ 随机化内容"/>
 
+                        <!-- ① 效果错位：核心功能 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
+                            <Border Width="3" Height="12" Background="{StaticResource Brush.Accent}" CornerRadius="2" VerticalAlignment="Center"/>
+                            <TextBlock Text="效果错位" Margin="6,0,8,0" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                            <TextBlock Text="名称与图标不变，实际效果变成别人的" FontSize="11.5"
+                                       Foreground="{StaticResource Brush.TextFaint}" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <WrapPanel>
                             <CheckBox x:Name="ChkMagic" Content="魔法与祷告" IsChecked="True"
                                       ToolTip="释放法术时打出别人的法术效果。"/>
@@ -65,42 +73,74 @@
                                       Checked="EquipUi_Changed" Unchecked="EquipUi_Changed"
                                       ToolTip="护符与武器附带的效果互相换主：护符会真正生效别的护符的能力。"/>
                         </WrapPanel>
-                        <WrapPanel>
-                            <CheckBox x:Name="ChkAtkElement" Content="↳ 攻击元素也错位（判定层魔/火/雷/暗 + 视觉变体）" IsChecked="False"
+                        <WrapPanel Margin="0,0,0,2">
+                            <CheckBox x:Name="ChkAtkElement" Content="攻击元素也错位（判定层 + 视觉变体）" IsChecked="False"
+                                      Style="{StaticResource SubOption}"
                                       ToolTip="武器的攻击元素也错位——刀可能砍出火、法术可能劈出雷，命中特效随之变化。需勾选「装备效果」。"/>
+                            <CheckBox x:Name="ChkNpcSpells" Content="包含 NPC 专用法术（不建议）" IsChecked="False"
+                                      Style="{StaticResource SubOption}"
+                                      ToolTip="敌方法术也参与错位，可能造成异常行为。"/>
+                            <CheckBox x:Name="ChkWeaponAsh" Content="武器所挂载的战灰也互换" IsChecked="False"
+                                      Style="{StaticResource SubOption}"
+                                      ToolTip="武器挂载的战灰也互换（更混乱）。"/>
                         </WrapPanel>
                         <WrapPanel>
                             <CheckBox x:Name="ChkGoodsSafe" Content="道具只随机「可直接使用且带效果」的（推荐）" IsChecked="True"
                                       ToolTip="只让真正能使用且带效果的道具参与（推荐）。取消后几乎所有道具都会参与，容易破坏游戏功能。"/>
                             <CheckBox x:Name="ChkUnlockAsh" Content="解除战灰武器限制（任意武器可用任意战灰）" IsChecked="True"
                                       ToolTip="任意武器都能装任意战灰。"/>
+                            <CheckBox x:Name="ChkCost" Content="资源消耗也随机（MP / 耐力 / 使用次数）" IsChecked="True"
+                                      ToolTip="MP、耐力、使用次数等消耗也一起错位。"/>
                         </WrapPanel>
+
+                        <!-- ② 敌人与战斗 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,2">
+                            <Border Width="3" Height="12" Background="{StaticResource Brush.Accent}" CornerRadius="2" VerticalAlignment="Center"/>
+                            <TextBlock Text="敌人与战斗" Margin="6,0,8,0" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                            <TextBlock Text="改动敌人的抗性与伤害关系" FontSize="11.5"
+                                       Foreground="{StaticResource Brush.TextFaint}" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <WrapPanel>
                             <CheckBox x:Name="ChkEnemyResist" Content="敌人伤害抗性随机（1.3.1）" IsChecked="False"
                                       Checked="ResistUi_Changed" Unchecked="ResistUi_Changed" FontWeight="Bold"
                                       ToolTip="敌人对毒、出血、冻伤等异常状态与各元素伤害的抗性随机换主——怕毒的敌人可能不再怕毒，弱火的 BOSS 可能变成弱雷。"/>
-                            <CheckBox x:Name="ChkResistNonBoss" Content="↳ 非Boss类敌人" IsChecked="True"
+                            <CheckBox x:Name="ChkResistNonBoss" Content="非Boss类敌人" IsChecked="True"
                                       Checked="ResistUi_Changed" Unchecked="ResistUi_Changed"
+                                      Style="{StaticResource SubOption}"
                                       ToolTip="杂兵、精英与野生动物参与抗性换主。"/>
-                            <CheckBox x:Name="ChkResistBoss" Content="↳ Boss类敌人" IsChecked="False"
+                            <CheckBox x:Name="ChkResistBoss" Content="Boss类敌人" IsChecked="False"
                                       Checked="ResistUi_Changed" Unchecked="ResistUi_Changed"
+                                      Style="{StaticResource SubOption}"
                                       ToolTip="BOSS 参与抗性换主，只与其他 BOSS 互换。"/>
                         </WrapPanel>
                         <WrapPanel>
-                            <CheckBox x:Name="ChkCost" Content="同时随机化资源消耗（MP / 耐力 / 使用次数）" IsChecked="True"
-                                      ToolTip="MP、耐力、使用次数等消耗也一起错位。"/>
-                            <CheckBox x:Name="ChkWeaponAsh" Content="附加：随机化武器所挂载的战灰" IsChecked="False"
-                                      ToolTip="武器挂载的战灰也互换（更混乱）。"/>
-                            <CheckBox x:Name="ChkNpcSpells" Content="包含 NPC 专用法术（不建议）" IsChecked="False"
-                                      ToolTip="敌方法术也参与错位，可能造成异常行为。"/>
+                            <CheckBox x:Name="ChkToughness" Content="敌人韧性随机（1.6.0）" IsChecked="False"
+                                      Checked="ToughnessUi_Changed" Unchecked="ToughnessUi_Changed" FontWeight="Bold"
+                                      ToolTip="敌人的韧性档位随机换主——原本一碰就失衡的杂兵可能扛住一击，高韧性的 BOSS 可能变得容易失衡。"/>
+                            <CheckBox x:Name="ChkToughnessNonBoss" Content="非Boss类敌人" IsChecked="True"
+                                      Checked="ToughnessUi_Changed" Unchecked="ToughnessUi_Changed"
+                                      Style="{StaticResource SubOption}"
+                                      ToolTip="杂兵、精英与野生动物参与韧性换主。"/>
+                            <CheckBox x:Name="ChkToughnessBoss" Content="Boss类敌人" IsChecked="False"
+                                      Checked="ToughnessUi_Changed" Unchecked="ToughnessUi_Changed"
+                                      Style="{StaticResource SubOption}"
+                                      ToolTip="BOSS 参与韧性换主，只与其他 BOSS 互换。"/>
                         </WrapPanel>
+
+                        <!-- ③ 扩展玩法 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,2">
+                            <Border Width="3" Height="12" Background="{StaticResource Brush.Accent}" CornerRadius="2" VerticalAlignment="Center"/>
+                            <TextBlock Text="扩展玩法" Margin="6,0,8,0" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                            <TextBlock Text="对话、动作与召唤物" FontSize="11.5"
+                                       Foreground="{StaticResource Brush.TextFaint}" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <WrapPanel>
                             <CheckBox x:Name="ChkTalks" Content="NPC 对话随机（说别人的台词）" IsChecked="False"
                                       ToolTip="NPC 会说别人的台词，动作与口型一并跟随。"/>
                             <CheckBox x:Name="ChkWeaponMotion" Content="武器动作模组随机（用别的武器动画）" IsChecked="False"
                                       ToolTip="武器攻击动作互换——大剑可能挥出匕首的动作，攻击距离与手感随之变化。"/>
-                        </WrapPanel>
-                        <WrapPanel>
                             <CheckBox x:Name="ChkSummons" Content="启用召唤物随机化" IsChecked="True" FontWeight="Bold"
                                       Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
                                       ToolTip="骨灰召唤出的敌人随机化：换敌、多召、驯服，倍率可调。展开下方可详细设置。"/>
@@ -142,15 +182,15 @@
 
                                         <WrapPanel Margin="0,4,0,0">
                                             <TextBlock Text="初始多召几率 %" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                            <TextBox x:Name="TxtInitChance" Width="44" Text="50" ToolTip="一次召出多于 1 个敌人的概率。"/>
+                                            <TextBox x:Name="TxtInitChance" Width="56" Text="50" ToolTip="一次召出多于 1 个敌人的概率。"/>
                                             <TextBlock Text="追加几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtAddChance" Width="44" Text="50" ToolTip="已召出 2 个以上时，再追加一个的概率。"/>
+                                            <TextBox x:Name="TxtAddChance" Width="56" Text="50" ToolTip="已召出 2 个以上时，再追加一个的概率。"/>
                                             <TextBlock Text="多召上限" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtMultiMax" Width="40" Text="5" ToolTip="一次最多召出的数量（1 = 不多召）。"/>
+                                            <TextBox x:Name="TxtMultiMax" Width="50" Text="5" ToolTip="一次最多召出的数量（1 = 不多召）。"/>
                                             <TextBlock Text="重复几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtDupeChance" Width="44" Text="80" ToolTip="第 2 个起与第 1 个是同一种敌人的概率。"/>
+                                            <TextBox x:Name="TxtDupeChance" Width="56" Text="80" ToolTip="第 2 个起与第 1 个是同一种敌人的概率。"/>
                                             <TextBlock Text="变体复用 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtVariantChance" Width="44" Text="20" ToolTip="允许选到同族变体的概率。"/>
+                                            <TextBox x:Name="TxtVariantChance" Width="56" Text="20" ToolTip="允许选到同族变体的概率。"/>
                                         </WrapPanel>
 
                                         <WrapPanel Margin="0,2,0,0">
@@ -165,15 +205,15 @@
                                                       Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
                                                       ToolTip="骨灰的召唤消耗（FP / HP）重新随机。"/>
                                             <TextBlock Text="FP" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                            <TextBox x:Name="TxtFpCostMin" Width="40" Text="30" ToolTip="FP 消耗下限。"/>
+                                            <TextBox x:Name="TxtFpCostMin" Width="58" Text="30" ToolTip="FP 消耗下限。"/>
                                             <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
-                                            <TextBox x:Name="TxtFpCostMax" Width="40" Text="60" ToolTip="FP 消耗上限（不含）。"/>
+                                            <TextBox x:Name="TxtFpCostMax" Width="58" Text="60" ToolTip="FP 消耗上限（不含）。"/>
                                             <TextBlock Text="改用 HP 几率 %" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtHpCostChance" Width="40" Text="10" ToolTip="骨灰改为消耗 HP 的概率。"/>
+                                            <TextBox x:Name="TxtHpCostChance" Width="56" Text="10" ToolTip="骨灰改为消耗 HP 的概率。"/>
                                             <TextBlock Text="HP" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                            <TextBox x:Name="TxtHpCostMin" Width="44" Text="300" ToolTip="HP 消耗下限。"/>
+                                            <TextBox x:Name="TxtHpCostMin" Width="66" Text="300" ToolTip="HP 消耗下限。"/>
                                             <TextBlock Text="~" VerticalAlignment="Center" Margin="3,0,3,0"/>
-                                            <TextBox x:Name="TxtHpCostMax" Width="44" Text="600" ToolTip="HP 消耗上限（不含）。"/>
+                                            <TextBox x:Name="TxtHpCostMax" Width="66" Text="600" ToolTip="HP 消耗上限（不含）。"/>
                                         </WrapPanel>
                                     </StackPanel>
 
@@ -199,11 +239,11 @@
                                                   Checked="SummonUi_Changed" Unchecked="SummonUi_Changed"
                                                   ToolTip="按倍率调整召唤物的血量与伤害（与骨灰强化叠加）。"/>
                                         <TextBlock Text="血量倍率" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                        <TextBox x:Name="TxtHpMul" Width="48" Text="2.0" ToolTip="2.0 = 血量 +100%（与骨灰强化叠加）。"/>
+                                        <TextBox x:Name="TxtHpMul" Width="58" Text="2.0" ToolTip="2.0 = 血量 +100%（与骨灰强化叠加）。"/>
                                         <TextBlock Text="伤害倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                        <TextBox x:Name="TxtDmgMul" Width="48" Text="3.0" ToolTip="3.0 = 攻击 +200%（与骨灰强化叠加）。"/>
+                                        <TextBox x:Name="TxtDmgMul" Width="58" Text="3.0" ToolTip="3.0 = 攻击 +200%（与骨灰强化叠加）。"/>
                                         <TextBlock Text="FP 倍率" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                        <TextBox x:Name="TxtFpMul" Width="48" Text="1.0" ToolTip="召唤物的 MP 上限倍率，1.0 = 不变。"/>
+                                        <TextBox x:Name="TxtFpMul" Width="58" Text="1.0" ToolTip="召唤物的 MP 上限倍率，1.0 = 不变。"/>
                                     </WrapPanel>
                                     <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
                                                Text="倍率 1.0 = 不变；调整后召唤出来的敌人按倍率成长。"/>
@@ -235,7 +275,7 @@
                         </StackPanel>
                         <TextBox x:Name="LogBox" IsReadOnly="True" AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                 FontSize="12" Background="#FAFAFC" Height="150"
+                                 FontSize="12" Background="#FAFAFC" Height="118"
                                  Text="就绪。请确认游戏目录后点击「开始随机化」。&#x0a;"/>
                     </StackPanel>
                 </Border>

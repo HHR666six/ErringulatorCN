@@ -634,6 +634,15 @@ namespace ErringulatorCN.Core
                 if (prRes != null) report.Params.Add(prRes);
             }
 
+            // ---- 附加：敌人韧性随机（1.6.0 新增，独立开关 + Boss/非Boss 范围）----
+            // NpcParam.toughness 是 ToughnessParam 的行索引（0/20/35 → 补正 0/1.5/3.0），
+            // 在同类敌人池内成对错位「档位索引 + 回复补正」，引用零风险。
+            if (_settings.RandomizeEnemyToughness && !_settings.NoOp)
+            {
+                ParamReport prTgh = ProcessEnemyToughness(byName, rng, report);
+                if (prTgh != null) report.Params.Add(prTgh);
+            }
+
             // ---- 写回并加密 ----
             Report("正在重新打包并加密……", totalSteps - 2, totalSteps);
             Log("正在重新打包并加密……");
@@ -1372,15 +1381,6 @@ namespace ErringulatorCN.Core
             foreach (string missing in resistFields.Where(f => !fieldIndex.ContainsKey(f)))
                 Log($"敌人抗性随机：字段 {missing} 在本版 paramdef 中不存在，已跳过该字段。");
 
-            // Boss 判定
-            static bool IsBossRow(PARAM.Row r)
-            {
-                long nt, sb;
-                try { nt = Convert.ToInt64(r["npcType"].Value); } catch { nt = 0; }
-                try { sb = Convert.ToInt64(r["isSoulGetByBoss"].Value); } catch { sb = 0; }
-                return nt == 1 || sb == 1;
-            }
-
             var scope = _settings.EnemyResistScope;
             bool wantBoss = (scope & EnemyResistScope.Boss) != 0;
             bool wantNonBoss = (scope & EnemyResistScope.NonBoss) != 0;
@@ -1453,6 +1453,133 @@ namespace ErringulatorCN.Core
                 AffectedFields = usable.Length,
             };
             pr.AppliedFields.AddRange(usable);
+            return pr;
+        }
+
+        /// <summary>
+        /// Boss 判定（抗性随机与韧性随机共用）：npcType==1（Boss 敌人类型）
+        /// 或 isSoulGetByBoss==1（Boss 掉魂标记）任一命中即视为 Boss 行。
+        /// </summary>
+        private static bool IsBossRow(PARAM.Row r)
+        {
+            long nt, sb;
+            try { nt = Convert.ToInt64(r["npcType"].Value); } catch { nt = 0; }
+            try { sb = Convert.ToInt64(r["isSoulGetByBoss"].Value); } catch { sb = 0; }
+            return nt == 1 || sb == 1;
+        }
+
+        /// <summary>
+        /// 敌人韧性随机（1.6.0 新增）——NpcParam。
+        ///
+        /// 数据侧实测（1.16）：
+        ///   · NpcParam.toughness 是 <b>ToughnessParam 的行索引</b>，不是韧性数值本身：
+        ///     索引 0 → correctionRate 0（无韧性）、20 → 1.5、35 → 3.0；
+        ///     ToughnessParam 共 84 行（ID 0~251），是「档位 → 补正倍率」查表。
+        ///   · 全表只有 3 个档位被敌人使用：0（5511 个）、20（41）、35（1492）。
+        ///
+        /// 做法：在「同一类敌人池」内把 (toughness, toughnessRecoverCorrection)
+        /// 成对错位——每个敌人换成另一个敌人的完整韧性档位。
+        ///   · 索引始终取自本池已有的值，引用零风险；
+        ///   · 池内多重集守恒（档位分布不变，只换持有者）；
+        ///   · Boss 池与非 Boss 池独立置换，BOSS 不会拿到杂兵的档位。
+        ///
+        /// 注意： toughness=0 是合法的「无韧性档位」，因此 0 值行也参与置换
+        /// （与抗性随机不同，那里 0 表示「未设置」）。
+        /// </summary>
+        private ParamReport ProcessEnemyToughness(Dictionary<string, BinderFile> byName,
+            Random rng, RandomizeReport report)
+        {
+            if (!byName.TryGetValue("NpcParam", out BinderFile npcFile))
+            {
+                report.Warnings.Add("敌人韧性随机：缺少 NpcParam，已跳过。");
+                return null;
+            }
+
+            PARAM npc = PARAM.Read(npcFile.Bytes);
+            if (!npc.ApplyParamdefCarefully(_paramdefs))
+            {
+                report.Warnings.Add("敌人韧性随机：NpcParam 无匹配 paramdef，已跳过。");
+                return null;
+            }
+
+            var fieldIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < npc.AppliedParamdef.Fields.Count; i++)
+                fieldIndex[npc.AppliedParamdef.Fields[i].InternalName] = i;
+
+            if (!fieldIndex.ContainsKey("toughness"))
+            {
+                report.Warnings.Add("敌人韧性随机：NpcParam 缺少 toughness 字段，已跳过。");
+                return null;
+            }
+            bool hasRecover = fieldIndex.ContainsKey("toughnessRecoverCorrection");
+
+            var scope = _settings.EnemyToughnessScope;
+            bool wantBoss = (scope & EnemyToughnessScope.Boss) != 0;
+            bool wantNonBoss = (scope & EnemyToughnessScope.NonBoss) != 0;
+            if (!wantBoss && !wantNonBoss)
+            {
+                Log("跳过 敌人韧性随机（范围未选择任何敌人）");
+                return null;
+            }
+
+            int touched = 0, bossTouched = 0, nonBossTouched = 0;
+
+            // 池 = (行, 韧性档位索引, 回复补正值)；成对搬运，保持档位完整
+            var bossPool = new List<(PARAM.Row Row, double Tough, double Recover)>();
+            var normalPool = new List<(PARAM.Row Row, double Tough, double Recover)>();
+            foreach (PARAM.Row r in npc.Rows)
+            {
+                if (r.ID <= 0) continue;
+                if ((r.Name ?? "").StartsWith(SummonRandomizerEngine.CloneNamePrefix, StringComparison.Ordinal))
+                    continue;   // 召唤物克隆行不参与（由召唤引擎重建）
+                double t = GoodsDouble(r, "toughness");
+                double rc = hasRecover ? GoodsDouble(r, "toughnessRecoverCorrection") : 0.0;
+                bool boss = IsBossRow(r);
+                if (boss) bossPool.Add((r, t, rc)); else normalPool.Add((r, t, rc));
+            }
+
+            void PermutePool(List<(PARAM.Row Row, double Tough, double Recover)> pool, ref int counter)
+            {
+                if (pool.Count < 2) return;
+                int[] perm = Permute.BuildPermutation(pool.Count, _settings.Mode, _settings.ShiftAmount, rng);
+                var backup = pool.Select(x => (x.Tough, x.Recover)).ToArray();
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var (t, rc) = backup[perm[i]];
+                    if (WriteCellDouble(pool[i].Row.Cells[fieldIndex["toughness"]], t)) counter++;
+                    if (hasRecover && WriteCellDouble(pool[i].Row.Cells[fieldIndex["toughnessRecoverCorrection"]], rc)) counter++;
+                }
+            }
+
+            int before = touched;
+            if (wantBoss) { PermutePool(bossPool, ref touched); bossTouched = touched - before; }
+            before = touched;
+            if (wantNonBoss) { PermutePool(normalPool, ref touched); nonBossTouched = touched - before; }
+
+            if (touched == 0)
+            {
+                Log("跳过 敌人韧性随机（没有可置换了行的行）");
+                return null;
+            }
+
+            npcFile.Bytes = npc.Write();
+
+            string scopeDesc = (wantBoss && wantNonBoss) ? "Boss + 非Boss"
+                : wantBoss ? "仅 Boss" : "仅非 Boss";
+            Log($"已随机化 敌人韧性（NpcParam，{scopeDesc}）：韧性档位索引 + 回复补正成对错位，" +
+                $"Boss 池改动 {bossTouched} 处，非 Boss 池改动 {nonBossTouched} 处。");
+
+            var pr = new ParamReport
+            {
+                ParamName = "NpcParam",
+                ParamType = npc.ParamType,
+                Description = $"敌人韧性随机（{scopeDesc}：韧性档位索引换主，对应 ToughnessParam 行）",
+                TotalRows = npc.Rows.Count,
+                AffectedRows = touched,
+                AffectedFields = hasRecover ? 2 : 1,
+            };
+            pr.AppliedFields.Add("toughness");
+            if (hasRecover) pr.AppliedFields.Add("toughnessRecoverCorrection");
             return pr;
         }
 

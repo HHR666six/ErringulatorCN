@@ -20,6 +20,15 @@ namespace ErringulatorCN.App
         private bool _running;
         private bool _uiReady;
         private bool _suppressPresetEvent;
+
+        /// <summary>
+        /// 「自定义」哨兵项：当前设置不匹配任何预设时显示它，
+        /// 避免下拉框空白让人以为预设名丢了。选中它不会改动任何数值。
+        /// </summary>
+        private static readonly SummonPreset CustomPresetEntry = new SummonPreset(
+            "custom", "自定义（手动设置）",
+            "当前设置不属于任何预设；可直接编辑下方数值，或在上方选择一套预设。",
+            null);
         private readonly StringBuilder _logBuffer = new StringBuilder();
 
         /// <summary>常见安装位置（注册表探测失败时的后备）。</summary>
@@ -52,6 +61,7 @@ namespace ErringulatorCN.App
             UpdateSummonUiEnabled();
             UpdateEquipUiEnabled();
             UpdateResistUiEnabled();
+            UpdateToughnessUiEnabled();
             Closing += (s, e) => SaveState();
         }
 
@@ -59,6 +69,7 @@ namespace ErringulatorCN.App
 
         private void InitSummonPresets()
         {
+            CmbSummonPreset.Items.Add(CustomPresetEntry);
             foreach (SummonPreset p in SummonPreset.All)
                 CmbSummonPreset.Items.Add(p);
             _suppressPresetEvent = true;
@@ -231,7 +242,7 @@ namespace ErringulatorCN.App
             ChkAtkElement.IsEnabled = ChkEquip.IsChecked == true;
         }
 
-        // ==================== 敌人抗性子项联动 ====================
+        // ==================== 敌人抗性 / 韧性 子项联动 ====================
 
         private void ResistUi_Changed(object sender, RoutedEventArgs e) => UpdateResistUiEnabled();
 
@@ -245,6 +256,20 @@ namespace ErringulatorCN.App
             bool enabled = ChkEnemyResist.IsChecked == true;
             ChkResistNonBoss.IsEnabled = enabled;
             ChkResistBoss.IsEnabled = enabled;
+        }
+
+        private void ToughnessUi_Changed(object sender, RoutedEventArgs e) => UpdateToughnessUiEnabled();
+
+        /// <summary>
+        /// 敌人韧性随机（1.6.0）：父开关关闭时两个范围子项一起禁用；
+        /// 两个子项可同时勾选（Boss 与非 Boss 各自独立分池）。
+        /// </summary>
+        private void UpdateToughnessUiEnabled()
+        {
+            if (!_uiReady || ChkToughness == null) return;
+            bool enabled = ChkToughness.IsChecked == true;
+            ChkToughnessNonBoss.IsEnabled = enabled;
+            ChkToughnessBoss.IsEnabled = enabled;
         }
 
         // ==================== 召唤物设置界面 ====================
@@ -280,7 +305,10 @@ namespace ErringulatorCN.App
         {
             if (_suppressPresetEvent) return;
             if (CmbSummonPreset.SelectedItem is SummonPreset p)
+            {
+                if (p.Key == "custom") return;   // 自定义项只是占位，不改数值
                 ApplyPresetToUi(p.Key);
+            }
         }
 
         private void ApplyPresetToUi(string key)
@@ -324,7 +352,7 @@ namespace ErringulatorCN.App
             {
                 string key = s.MatchPresetKey();
                 _suppressPresetEvent = true;
-                CmbSummonPreset.SelectedItem = null;
+                CmbSummonPreset.SelectedItem = CustomPresetEntry;
                 if (key != null)
                 {
                     foreach (SummonPreset p in SummonPreset.All)
@@ -486,6 +514,10 @@ namespace ErringulatorCN.App
             public bool EnemyResist { get; set; }
             public bool ResistNonBoss { get; set; } = true;
             public bool ResistBoss { get; set; }
+            /// <summary>敌人韧性随机（1.6.0）。</summary>
+            public bool Toughness { get; set; }
+            public bool ToughnessNonBoss { get; set; } = true;
+            public bool ToughnessBoss { get; set; }
             public SummonSettings Summons { get; set; }
         }
 
@@ -516,6 +548,9 @@ namespace ErringulatorCN.App
                     EnemyResist = ChkEnemyResist.IsChecked == true,
                     ResistNonBoss = ChkResistNonBoss.IsChecked == true,
                     ResistBoss = ChkResistBoss.IsChecked == true,
+                    Toughness = ChkToughness.IsChecked == true,
+                    ToughnessNonBoss = ChkToughnessNonBoss.IsChecked == true,
+                    ToughnessBoss = ChkToughnessBoss.IsChecked == true,
                     Summons = ReadSummonSettingsFromUi(),
                 };
                 Directory.CreateDirectory(Path.GetDirectoryName(StatePath));
@@ -556,6 +591,9 @@ namespace ErringulatorCN.App
                 ChkEnemyResist.IsChecked = st.EnemyResist;
                 ChkResistNonBoss.IsChecked = st.ResistNonBoss;
                 ChkResistBoss.IsChecked = st.ResistBoss;
+                ChkToughness.IsChecked = st.Toughness;
+                ChkToughnessNonBoss.IsChecked = st.ToughnessNonBoss;
+                ChkToughnessBoss.IsChecked = st.ToughnessBoss;
                 if (st.Summons != null)
                 {
                     st.Summons.Clamp();
@@ -605,6 +643,9 @@ namespace ErringulatorCN.App
                 RandomizeWeaponMoveset = ChkWeaponMotion.IsChecked == true,
                 RandomizeAttackElements = ChkAtkElement.IsChecked == true,
                 RandomizeEnemyResist = ChkEnemyResist.IsChecked == true,
+                RandomizeEnemyToughness = ChkToughness.IsChecked == true,
+                EnemyToughnessScope = (ChkToughnessNonBoss.IsChecked == true ? EnemyToughnessScope.NonBoss : EnemyToughnessScope.None)
+                                   | (ChkToughnessBoss.IsChecked == true ? EnemyToughnessScope.Boss : EnemyToughnessScope.None),
                 EnemyResistScope = (ChkResistNonBoss.IsChecked == true ? EnemyResistScope.NonBoss : EnemyResistScope.None)
                                  | (ChkResistBoss.IsChecked == true ? EnemyResistScope.Boss : EnemyResistScope.None),
                 IncludeNpcSpells = ChkNpcSpells.IsChecked == true,
@@ -618,7 +659,7 @@ namespace ErringulatorCN.App
                 !settings.RandomizeGoods && !settings.RandomizeEquipment &&
                 !settings.RandomizeWeaponAshLink && !settings.RandomizeSummons &&
                 !settings.RandomizeTalks && !settings.RandomizeWeaponMoveset &&
-                !settings.RandomizeEnemyResist &&
+                !settings.RandomizeEnemyResist && !settings.RandomizeEnemyToughness &&
                 !settings.UnlockAshOfWarForAllWeapons)
             {
                 MessageBox.Show(this, "请至少勾选一项要随机化的内容。", "提示",
