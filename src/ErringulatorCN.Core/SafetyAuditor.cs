@@ -80,13 +80,31 @@ namespace ErringulatorCN.Core
                 }
             }
 
-            Dictionary<int, PARAM.Row> Load(string path)
+            try
             {
-                BND4 bnd = SFUtil.DecryptERRegulation(path);
-                BinderFile f = bnd.Files.FirstOrDefault(x =>
-                    Path.GetFileNameWithoutExtension(x.Name).Equals("EquipParamGoods", StringComparison.OrdinalIgnoreCase));
-                if (f == null) throw new InvalidOperationException("找不到 EquipParamGoods 参数表。");
-                PARAM p = PARAM.Read(f.Bytes);
+                return CheckGoods(
+                    FindGoods(SFUtil.DecryptERRegulation(originalPath)),
+                    FindGoods(SFUtil.DecryptERRegulation(generatedPath)), paramdefs);
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add("读取文件失败：" + ex.Message);
+                return report;
+            }
+        }
+
+        internal static byte[] FindGoods(BND4 regulation) =>
+            regulation.Files.FirstOrDefault(f =>
+                string.Equals(Path.GetFileNameWithoutExtension(f.Name), "EquipParamGoods", StringComparison.OrdinalIgnoreCase))?.Bytes;
+
+        internal static SafetyCheckReport CheckGoods(byte[] original, byte[] generated, List<PARAMDEF> paramdefs)
+        {
+            var report = new SafetyCheckReport();
+
+            Dictionary<int, PARAM.Row> Load(byte[] bytes)
+            {
+                if (bytes == null) throw new InvalidOperationException("找不到 EquipParamGoods 参数表。");
+                PARAM p = PARAM.Read(bytes);
                 if (!p.ApplyParamdefCarefully(paramdefs))
                     throw new InvalidOperationException("EquipParamGoods 的 paramdef 不匹配。");
                 return p.Rows.ToDictionary(r => r.ID);
@@ -95,8 +113,8 @@ namespace ErringulatorCN.Core
             Dictionary<int, PARAM.Row> rowsA, rowsB;
             try
             {
-                rowsA = Load(originalPath);
-                rowsB = Load(generatedPath);
+                rowsA = Load(original);
+                rowsB = Load(generated);
             }
             catch (Exception ex)
             {
@@ -113,6 +131,7 @@ namespace ErringulatorCN.Core
                 if (!rowsA.TryGetValue(id, out PARAM.Row ra) || !rowsB.TryGetValue(id, out PARAM.Row rb))
                 {
                     item.Details.Add("缺少该行，无法核对");
+                    report.Errors.Add($"{name}（ID {id}）缺少该行，无法核对。");
                     continue;
                 }
 

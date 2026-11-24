@@ -506,10 +506,18 @@ namespace SoulsFormats
         /// </summary>
         public static void EncryptERRegulation(string path, BND4 bnd)
         {
-            byte[] bytes = bnd.Write();
-            bytes = EncryptByteArray(erRegulationKey, bytes);
+            WriteERRegulation(path, bnd.Write());
+        }
+
+        internal static void EncryptERRegulation(string path, BND4 bnd, byte zstdLevel)
+        {
+            WriteERRegulation(path, DCX.CompressZstd(bnd.Write(DCX.Type.None), zstdLevel));
+        }
+
+        private static void WriteERRegulation(string path, byte[] bytes)
+        {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllBytes(path, bytes);
+            File.WriteAllBytes(path, EncryptByteArray(erRegulationKey, bytes));
         }
 
         private static readonly byte[] ac6RegulationKey = ParseHexString("10 CE ED 47 7B 7C D9 D7 E6 93 8E 11 47 13 E7 87 D5 39 13 B1 D 31 8E C1 35 E4 BE 50 50 4E 0E 10");

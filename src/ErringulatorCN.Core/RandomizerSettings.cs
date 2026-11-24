@@ -92,11 +92,12 @@ namespace ErringulatorCN.Core
         public bool RandomizeCost { get; set; } = true;
 
         /// <summary>
-        /// NPC 对话随机：把 TalkParam 里各条对白的整套内容
-        /// （台词 ID / 语音 / 动作 / 口型 / 触发事件等）互相错位，
-        /// 于是 NPC 会说出别人的台词、配上别人的口型与动作。
+        /// NPC 对话随机：在相容的对白之间成组交换台词与语音。
         /// </summary>
         public bool RandomizeTalks { get; set; }
+
+        /// <summary>对话随机启用时，沿用 1.6 版的整套对白错位与种子序列。</summary>
+        public bool UseLegacyTalkShuffle { get; set; }
 
         /// <summary>
         /// 攻击元素错位——<b>「装备效果（护符/武器）」的子项</b>（1.3.0 新增）。

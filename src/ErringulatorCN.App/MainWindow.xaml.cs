@@ -199,12 +199,7 @@ namespace ErringulatorCN.App
             if (string.IsNullOrWhiteSpace(dir)) return;
 
             string target = Path.Combine(dir, "regulation.bin");
-            string bak = Path.Combine(dir, "regulation.bin.bak");
-            if (!File.Exists(bak))
-            {
-                string legacy = Path.Combine(dir, "regulation-erringulator-backup.bin");
-                if (File.Exists(legacy)) bak = legacy;
-            }
+            string bak = EffectRandomizer.BackupPathFor(target);
             if (!File.Exists(bak))
             {
                 MessageBox.Show(this, $"没有找到备份文件：\n{Path.Combine(dir, "regulation.bin.bak")}", "无法恢复",
@@ -507,6 +502,7 @@ namespace ErringulatorCN.App
             public bool WeaponAsh { get; set; }
             public bool NpcSpells { get; set; }
             public bool Talks { get; set; }
+            public bool UseLegacyTalkShuffle { get; set; }
             public bool WeaponMotion { get; set; }
             /// <summary>装备效果的子项：攻击元素错位（1.3.0）。</summary>
             public bool AtkElement { get; set; }
@@ -543,6 +539,7 @@ namespace ErringulatorCN.App
                     WeaponAsh = ChkWeaponAsh.IsChecked == true,
                     NpcSpells = ChkNpcSpells.IsChecked == true,
                     Talks = ChkTalks.IsChecked == true,
+                    UseLegacyTalkShuffle = ChkLegacyTalks.IsChecked == true,
                     WeaponMotion = ChkWeaponMotion.IsChecked == true,
                     AtkElement = ChkAtkElement.IsChecked == true,
                     EnemyResist = ChkEnemyResist.IsChecked == true,
@@ -586,6 +583,7 @@ namespace ErringulatorCN.App
                 ChkWeaponAsh.IsChecked = st.WeaponAsh;
                 ChkNpcSpells.IsChecked = st.NpcSpells;
                 ChkTalks.IsChecked = st.Talks;
+                ChkLegacyTalks.IsChecked = st.UseLegacyTalkShuffle;
                 ChkWeaponMotion.IsChecked = st.WeaponMotion;
                 ChkAtkElement.IsChecked = st.AtkElement;
                 ChkEnemyResist.IsChecked = st.EnemyResist;
@@ -618,6 +616,9 @@ namespace ErringulatorCN.App
                     "以下输入有问题，请修正后再开始：\n\n" +
                     string.Join("\n", inputErrors.Select(x => "· " + x.Msg)),
                     "请检查输入", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (ExpSummon.IsAncestorOf(inputErrors[0].Box))
+                    ExpSummon.IsExpanded = true;
+                inputErrors[0].Box?.BringIntoView();
                 inputErrors[0].Box?.Focus();
                 return;
             }
@@ -640,6 +641,7 @@ namespace ErringulatorCN.App
                 Summons = summonSettings,
                 RandomizeWeaponAshLink = ChkWeaponAsh.IsChecked == true,
                 RandomizeTalks = ChkTalks.IsChecked == true,
+                UseLegacyTalkShuffle = ChkLegacyTalks.IsChecked == true,
                 RandomizeWeaponMoveset = ChkWeaponMotion.IsChecked == true,
                 RandomizeAttackElements = ChkAtkElement.IsChecked == true,
                 RandomizeEnemyResist = ChkEnemyResist.IsChecked == true,
@@ -675,15 +677,16 @@ namespace ErringulatorCN.App
             {
                 MessageBox.Show(this, ex.Message, "目录设置有误",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                InputBox.Focus();
                 return;
             }
 
             SaveState();
 
             _running = true;
-            BtnRun.IsEnabled = false;
-            BtnRestore.IsEnabled = false;
+            SetRunningState(true);
             StatusText.Text = "正在随机化……";
+            ShowResult("正在生成 regulation.bin");
             LogBox.Clear();
             _logBuffer.Clear();
             Progress.Value = 0;
@@ -716,17 +719,18 @@ namespace ErringulatorCN.App
 
             sw.Stop();
             _running = false;
-            BtnRun.IsEnabled = true;
-            BtnRestore.IsEnabled = true;
+            SetRunningState(false);
             Progress.Value = failure == null ? 100 : 0;
 
+            string outputDir = string.IsNullOrWhiteSpace(settings.OutputDir) ? settings.InputDir : settings.OutputDir;
             if (failure != null)
             {
                 Log("失败：" + failure.Message);
                 StatusText.Text = "随机化失败";
-                WriteLogFile(null);
-                MessageBox.Show(this, failure.ToString(), "随机化失败",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowResult("生成失败", failure.Message);
+                ExpLog.IsExpanded = true;
+                ResultCard.BringIntoView();
+                WriteLogFile(outputDir, null);
                 return;
             }
 
@@ -782,18 +786,42 @@ namespace ErringulatorCN.App
 
             Log("");
             Log($"完成，总耗时 {sw.Elapsed.TotalSeconds:F1} 秒。请重启游戏后再进入（修改不会立即生效）。");
-            StatusText.Text = $"完成（用时 {sw.Elapsed.TotalSeconds:F0} 秒）";
+            bool hasWarnings = report.Warnings.Count > 0 || (report.Safety != null && !report.Safety.Passed);
+            StatusText.Text = hasWarnings ? "生成完成，请查看警告" : "生成完成";
 
-            string logPath = WriteLogFile(report);
+            string logPath = WriteLogFile(outputDir, report);
             if (logPath != null)
                 Log($"本次日志已保存：{logPath}");
 
-            MessageBox.Show(this,
-                $"随机化完成！\n\n种子：{report.Seed}\n输出：{report.OutputPath}\n" +
-                (string.IsNullOrEmpty(safetyLine) ? "" : $"\n关键道具自检：{safetyLine}\n") +
-                "\n注意：regulation.bin 的改动需要重启游戏才会生效。\n" +
-                "请勿在联机模式下使用本工具的产物。",
-                "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowResult($"regulation.bin 已生成 · {sw.Elapsed.TotalSeconds:F1} 秒",
+                (hasWarnings ? "请查看运行日志中的警告。\n" : "") +
+                (string.IsNullOrEmpty(safetyLine) ? "" : safetyLine + "\n") +
+                "重启游戏后生效。");
+            if (hasWarnings)
+                ExpLog.IsExpanded = true;
+            ResultCard.BringIntoView();
+            SaveState();
+        }
+
+        private void SetRunningState(bool running)
+        {
+            LocationsCard.IsEnabled = !running;
+            SeedCard.IsEnabled = !running;
+            OptionsScroll.IsEnabled = !running;
+            BtnRun.IsEnabled = !running;
+            BtnRestore.IsEnabled = !running;
+        }
+
+        private void ShowResult(string summary, string details = "")
+        {
+            ResultSummary.Text = summary;
+            ResultDetails.Text = details;
+            ResultDetails.Visibility = details.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void Log_Expanded(object sender, RoutedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() => LogBox.ScrollToEnd()));
         }
 
         private static string DescribeMode(ErringMode mode, int shift) => mode switch
@@ -811,11 +839,10 @@ namespace ErringulatorCN.App
         }
 
         /// <summary>把本次运行日志写到输出目录（排障与复现用）。</summary>
-        private string WriteLogFile(RandomizeReport report)
+        private string WriteLogFile(string dir, RandomizeReport report)
         {
             try
             {
-                string dir = OutputBox.Text?.Trim();
                 if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return null;
                 string path = Path.Combine(dir,
                     $"ErringulatorCN_log_{DateTime.Now:yyyyMMdd-HHmmss}.txt");

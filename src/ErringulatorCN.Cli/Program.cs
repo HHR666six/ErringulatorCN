@@ -71,7 +71,8 @@ namespace ErringulatorCN.Cli
     --summon-fp X           FP 倍率（默认 1.0）
     --no-summon-mult        不应用倍率
     --no-summon-costs       不重掷骨灰召唤消耗（FP/HP）
-    --talks                 启用 NPC 对话随机（说别人的台词）
+    --talks                 启用 NPC 对话随机（成组交换台词与语音）
+    --talks-legacy          启用 1.6 版的整套 NPC 对话错位
     --weapon-motion         启用武器动作模组随机（用别的武器动画）
     --attack-elements       装备效果的子项：攻击元素错位（魔/火/雷/暗行内换位 + SFX 变体）
                             需同时开启装备效果（默认开启；用 --no-equip 会使其自动跳过）
@@ -311,7 +312,8 @@ namespace ErringulatorCN.Cli
                 UnlockAshOfWarForAllWeapons = !Flag(o, "no-unlock-ash"),
                 RandomizeSummons = !Flag(o, "no-summons"),
                 Summons = summon,
-                RandomizeTalks = Flag(o, "talks"),
+                RandomizeTalks = Flag(o, "talks") || Flag(o, "talks-legacy"),
+                UseLegacyTalkShuffle = Flag(o, "talks-legacy"),
                 RandomizeWeaponMoveset = Flag(o, "weapon-motion"),
                 RandomizeAttackElements = Flag(o, "attack-elements"),
                 RandomizeEnemyResist = Flag(o, "enemy-resist"),

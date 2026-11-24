@@ -169,6 +169,13 @@ namespace ErringulatorCN.Core
             "lipSyncStart", "lipSyncTime", "timeout", "talkAnimationId",
         };
 
+        private static readonly string[] TalkVoiceFields = { "msgId", "voiceId", "msgId_female", "voiceId_female" };
+        private static readonly string[] TalkDefaultFields =
+        {
+            "spEffectId0", "spEffectId1", "motionId0", "motionId1", "reactionId",
+            "eventId", "lipSyncTime", "timeout", "talkAnimationId",
+        };
+
         // ---- 道具排除名单 ----
 
         /// <summary>
@@ -253,12 +260,8 @@ namespace ErringulatorCN.Core
         /// 注：其它工具（mod 等）对 TalkParam 的正常修改通常不会改变该指纹；
         /// 若用户明确知道此文件被别的工具改过，可忽略该提醒。
         /// </summary>
-        private void CheckTalkRhythmHealth(Dictionary<string, BinderFile> byName, RandomizeReport report)
+        private void CheckTalkRhythmHealth(PARAM talk, RandomizeReport report)
         {
-            if (!byName.TryGetValue("TalkParam", out BinderFile file)) return;
-            PARAM talk = PARAM.Read(file.Bytes);
-            if (!talk.ApplyParamdefCarefully(_paramdefs)) return;
-
             string fp = ComputeTalkAnimFingerprint(talk);
             if (fp == VanillaTalkAnimFingerprint)
             {
@@ -408,7 +411,7 @@ namespace ErringulatorCN.Core
             // ---- 附加：NPC 对话（说别人的台词）----
             // 【初始版实现（按用户要求回退）】所有有台词的行（msgId > 0）都参与，
             // 不做事后筛选。注意：部分 NPC 对话会飞速掠过（见 TalkContentGroup 注释）。
-            if (_settings.RandomizeTalks)
+            if (_settings.RandomizeTalks && _settings.UseLegacyTalkShuffle)
             {
                 list.Add(new TargetSpec
                 {
@@ -452,13 +455,20 @@ namespace ErringulatorCN.Core
 
             // ---- 备份（必须在读取之前完成）----
             // 统一约定：备份就是 regulation.bin.bak，永远指向"未被本工具改过的原始文件"。
-            string bakPath = Path.Combine(outputDir, "regulation.bin.bak");
+            string bakPath = BackupPathFor(outputPath);
             if (_settings.BackupExisting && File.Exists(outputPath))
             {
                 if (!File.Exists(bakPath))
                 {
-                    File.Copy(outputPath, bakPath);
-                    Log($"已备份原始文件：{bakPath}");
+                    try
+                    {
+                        WriteAtomically(bakPath, path => File.Copy(outputPath, path), overwrite: false);
+                        Log($"已备份原始文件：{bakPath}");
+                    }
+                    catch (IOException) when (File.Exists(bakPath))
+                    {
+                        Log($"已存在备份，保留不动：{bakPath}");
+                    }
                 }
                 else
                 {
@@ -512,25 +522,20 @@ namespace ErringulatorCN.Core
             Log("正在解密并读取 regulation.bin……");
             BND4 regulation = SFUtil.DecryptERRegulation(inputPath);
             Log($"BND4 载入完成：{regulation.Files.Count} 个参数文件，压缩方式 {regulation.Compression}");
+            byte[] originalGoods = _settings.RandomizeGoods ? SafetyAuditor.FindGoods(regulation) : null;
 
             var byName = new Dictionary<string, BinderFile>(StringComparer.OrdinalIgnoreCase);
             foreach (BinderFile file in regulation.Files)
                 byName[Path.GetFileNameWithoutExtension(file.Name)] = file;
 
-            // ---- 对话数据体检（仅在启用对话随机时）----
-            // 输入若被旧版本搬乱过，重新生成无法复原，这里提前提醒用户先恢复备份。
-            if (_settings.RandomizeTalks && !_settings.NoOp)
-                CheckTalkRhythmHealth(byName, report);
-
             // ---- 逐表错位 ----
             List<TargetSpec> targets = _settings.NoOp ? new List<TargetSpec>() : BuildTargets();
-            int totalSteps = targets.Count + 6;
-            int step = 6;
+            int targetIndex = 0;
 
             foreach (TargetSpec spec in targets)
             {
-                Report($"正在随机化：{spec.Description}", step, totalSteps);
-                step++;
+                Report($"正在随机化：{spec.Description}", 10 + 60 * targetIndex / targets.Count, 100);
+                targetIndex++;
 
                 if (!byName.TryGetValue(spec.ParamName, out BinderFile file))
                 {
@@ -539,8 +544,13 @@ namespace ErringulatorCN.Core
                     continue;
                 }
 
-                ParamReport pr = ProcessParam(regulation, file, spec, rng, report);
-                if (pr != null) report.Params.Add(pr);
+                ProcessTarget(file, spec, rng, report);
+            }
+
+            if (_settings.RandomizeTalks && !_settings.UseLegacyTalkShuffle && !_settings.NoOp)
+            {
+                Report("正在随机化 NPC 对话……", 70, 100);
+                ProcessTalkVoice(byName, seed, report);
             }
 
             // ---- 附加：随机化召唤物（骨灰/灵体召唤出来的敌人）----
@@ -556,8 +566,7 @@ namespace ErringulatorCN.Core
 
                 if (ss.Engine == SummonEngineMode.Full)
                 {
-                    Report("正在随机化召唤物（完整版：换敌 + 多召 + 驯服）……", step, totalSteps);
-                    step++;
+                    Report("正在随机化召唤物（完整版：换敌 + 多召 + 驯服）……", 70, 100);
                     var engine = new SummonRandomizerEngine(ss, _paramdefs, Log);
                     SummonRunResult sr = engine.Run(regulation, seed);
                     report.Params.AddRange(sr.Reports);
@@ -566,8 +575,7 @@ namespace ErringulatorCN.Core
                 }
                 else if (byName.TryGetValue("BuddyParam", out BinderFile buddyFile))
                 {
-                    Report("正在随机化召唤物（温和：成对错位）……", step, totalSteps);
-                    step++;
+                    Report("正在随机化召唤物（温和：成对错位）……", 70, 100);
                     ParamReport pr = ProcessBuddySummon(buddyFile, rng, report, ss);
                     if (pr != null) report.Params.Add(pr);
 
@@ -597,8 +605,7 @@ namespace ErringulatorCN.Core
                     Description = "武器战灰挂载",
                     LooseFields = new[] { "swordArtsParamId" },
                 };
-                ParamReport pr = ProcessParam(regulation, weaponFile, spec, rng, report);
-                if (pr != null) report.Params.Add(pr);
+                ProcessTarget(weaponFile, spec, rng, report);
             }
 
             // ---- 附加：护符效果（按 ID 约定错位 SpEffect 效果行）----
@@ -643,51 +650,36 @@ namespace ErringulatorCN.Core
                 if (prTgh != null) report.Params.Add(prTgh);
             }
 
-            // ---- 写回并加密 ----
-            Report("正在重新打包并加密……", totalSteps - 2, totalSteps);
-            Log("正在重新打包并加密……");
-            regulation.Compression = DCX.Type.DCX_ZSTD;
-            SFUtil.EncryptERRegulation(outputPath, regulation);
-            Log($"已写出：{outputPath}");
-
-            // ---- 自检：重新读回并核对结构 ----
-            Report("正在自检输出文件……", totalSteps - 1, totalSteps);
-            try
+            // 先在同一目录写出并读回，验证通过后再替换目标文件。
+            WriteAtomically(outputPath, path =>
             {
-                BND4 verify = SFUtil.DecryptERRegulation(outputPath);
+                Report("正在重新打包并加密……", 85, 100);
+                Log("正在重新打包并加密……");
+                SFUtil.EncryptERRegulation(path, regulation, zstdLevel: 15);
+
+                Report("正在自检输出文件……", 95, 100);
+                BND4 verify = SFUtil.DecryptERRegulation(path);
                 Log($"自检：重新读取成功，参数文件 {verify.Files.Count} 个");
                 if (verify.Files.Count != regulation.Files.Count)
-                {
-                    report.Warnings.Add("自检发现参数文件数量不一致，请谨慎使用。");
-                }
-                else
-                {
-                    for (int i = 0; i < verify.Files.Count; i++)
-                    {
-                        if (verify.Files[i].Bytes.Length != regulation.Files[i].Bytes.Length)
-                        {
-                            report.Warnings.Add($"自检发现 {Path.GetFileName(verify.Files[i].Name)} 长度异常。");
-                            break;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                report.Warnings.Add("自检失败（输出文件可能不可用）：" + ex.Message);
-                Log("自检失败：" + ex.Message);
-            }
+                    throw new InvalidDataException("自检发现参数文件数量不一致。");
 
-            // ---- 关键道具安全自检：确认灵马哨笛/望远镜/圣杯瓶等未被误改 ----
-            if (_settings.RandomizeGoods)
-            {
-                try
+                for (int i = 0; i < verify.Files.Count; i++)
                 {
-                    SafetyCheckReport safety = SafetyAuditor.Check(inputPath, outputPath, defDir, _paramdefs);
+                    BinderFile expected = regulation.Files[i];
+                    BinderFile actual = verify.Files[i];
+                    if (actual.ID != expected.ID || actual.Name != expected.Name || actual.Flags != expected.Flags ||
+                        !actual.Bytes.AsSpan().SequenceEqual(expected.Bytes))
+                        throw new InvalidDataException($"自检发现 {Path.GetFileName(expected.Name)} 与打包前的数据不一致。");
+                }
+
+                if (_settings.RandomizeGoods)
+                {
+                    SafetyCheckReport safety = SafetyAuditor.CheckGoods(originalGoods, SafetyAuditor.FindGoods(verify), _paramdefs);
                     report.Safety = safety;
                     if (safety.Errors.Count > 0)
                     {
                         Log("关键道具自检未能完成：" + string.Join("；", safety.Errors));
+                        report.Warnings.AddRange(safety.Errors);
                     }
                     else if (safety.Passed)
                     {
@@ -701,18 +693,30 @@ namespace ErringulatorCN.Core
                         report.Warnings.Add($"关键道具自检发现问题：{safety.ChangedCount} 项受保护物品被改动。");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log("关键道具自检失败：" + ex.Message);
-                    report.Warnings.Add("关键道具自检失败：" + ex.Message);
-                }
-            }
+            }, overwrite: true);
+            Log($"已写出：{outputPath}");
 
             sw.Stop();
             report.Elapsed = sw.Elapsed;
-            Report("完成", totalSteps, totalSteps);
+            Report("完成", 100, 100);
             Log($"完成，用时 {sw.Elapsed.TotalSeconds:F1} 秒");
             return report;
+        }
+
+        private static void WriteAtomically(string path, Action<string> write, bool overwrite)
+        {
+            string temporaryPath = Path.Combine(Path.GetDirectoryName(path), $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+            try
+            {
+                write(temporaryPath);
+                File.Move(temporaryPath, path, overwrite);
+            }
+            finally
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         /// <summary>
@@ -733,18 +737,36 @@ namespace ErringulatorCN.Core
         /// <summary>
         /// 对单个参数表执行效果错位（同一张表可被多次处理，如武器效果 + 武器动作模组）。
         /// </summary>
-        private ParamReport ProcessParam(BND4 regulation, BinderFile file, TargetSpec spec,
-            Random rng, RandomizeReport report)
+        private void ProcessTarget(BinderFile file, TargetSpec spec, Random rng, RandomizeReport report)
         {
             PARAM param = PARAM.Read(file.Bytes);
             if (!param.ApplyParamdefCarefully(_paramdefs))
             {
                 report.Warnings.Add($"参数表 {spec.ParamName} 找不到行长为 {param.DetectedSize} 的定义，已跳过。");
                 Log($"跳过 {spec.ParamName}（无匹配 paramdef）");
-                return null;
+                return;
             }
 
-            PARAMDEF def = param.AppliedParamdef;
+            if (spec.ParamName == "TalkParam")
+                CheckTalkRhythmHealth(param, report);
+
+            ParamReport result = ProcessParam(param, spec, rng);
+            if (result == null) return;
+            file.Bytes = param.Write();
+            report.Params.Add(result);
+        }
+
+        private static Dictionary<string, int> BuildFieldIndex(PARAM param)
+        {
+            var fields = param.AppliedParamdef.Fields;
+            var index = new Dictionary<string, int>(fields.Count, StringComparer.Ordinal);
+            for (int i = 0; i < fields.Count; i++)
+                index[fields[i].InternalName] = i;
+            return index;
+        }
+
+        private ParamReport ProcessParam(PARAM param, TargetSpec spec, Random rng)
+        {
             var pr = new ParamReport
             {
                 ParamName = spec.ParamName,
@@ -753,9 +775,7 @@ namespace ErringulatorCN.Core
                 Description = spec.Description,
             };
 
-            var fieldIndex = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (int i = 0; i < def.Fields.Count; i++)
-                fieldIndex[def.Fields[i].InternalName] = i;
+            var fieldIndex = BuildFieldIndex(param);
 
             // 排除 ID<=0 的空槽位：给未使用的行写入数据没有意义
             PARAM.Row[] rows = param.Rows.Where(r => r.ID > 0 && spec.RowFilter(r)).ToArray();
@@ -777,6 +797,7 @@ namespace ErringulatorCN.Core
             }
 
             int[] perm = Permute.BuildPermutation(rows.Length, _settings.Mode, _settings.ShiftAmount, rng);
+            var values = new object[rows.Length];
             int touchedFields = 0;
 
             // 1) 效果组：组内字段同步搬家，保持引用关系完整
@@ -788,20 +809,8 @@ namespace ErringulatorCN.Core
 
                 if (usable.Length == 0) continue;
 
-                var backup = new object[rows.Length][];
-                for (int i = 0; i < rows.Length; i++)
-                {
-                    var v = new object[usable.Length];
-                    for (int j = 0; j < usable.Length; j++)
-                        v[j] = rows[i].Cells[fieldIndex[usable[j]]].Value;
-                    backup[i] = v;
-                }
-                for (int i = 0; i < rows.Length; i++)
-                {
-                    object[] src = backup[perm[i]];
-                    for (int j = 0; j < usable.Length; j++)
-                        rows[i].Cells[fieldIndex[usable[j]]].Value = src[j];
-                }
+                foreach (string field in usable)
+                    PermuteField(rows, fieldIndex[field], perm, values);
 
                 touchedFields += usable.Length;
                 pr.AppliedFields.Add($"组({usable.Length}字段)");
@@ -812,25 +821,113 @@ namespace ErringulatorCN.Core
             foreach (string missing in spec.LooseFields.Where(f => !fieldIndex.ContainsKey(f)))
                 if (!pr.SkippedFields.Contains(missing)) pr.SkippedFields.Add(missing);
 
-            foreach (string f in looseUsable)
-            {
-                int idx = fieldIndex[f];
-                object[] src = new object[rows.Length];
-                for (int i = 0; i < rows.Length; i++) src[i] = rows[i].Cells[idx].Value;
-                for (int i = 0; i < rows.Length; i++) rows[i].Cells[idx].Value = src[perm[i]];
-            }
+            foreach (string field in looseUsable)
+                PermuteField(rows, fieldIndex[field], perm, values);
             touchedFields += looseUsable.Length;
             pr.AppliedFields.AddRange(looseUsable);
 
             pr.AffectedRows = rows.Length;
             pr.AffectedFields = touchedFields;
 
-            file.Bytes = param.Write();
-
             Log($"已随机化 {spec.Description}（{spec.ParamName}）：{rows.Length} 行 × {touchedFields} 字段" +
                 (pr.SkippedFields.Count > 0 ? $"，{pr.SkippedFields.Count} 个字段在本版 paramdef 中不存在已跳过" : ""));
 
             return pr;
+        }
+
+        private static void PermuteField(IReadOnlyList<PARAM.Row> rows, int field, int[] permutation, object[] values)
+        {
+            for (int i = 0; i < rows.Count; i++) values[i] = rows[i].Cells[field].Value;
+            for (int i = 0; i < rows.Count; i++) rows[i].Cells[field].Value = values[permutation[i]];
+        }
+
+        private void ProcessTalkVoice(Dictionary<string, BinderFile> byName, string seed, RandomizeReport report)
+        {
+            if (!byName.TryGetValue("TalkParam", out BinderFile file))
+            {
+                report.Warnings.Add("NPC 对话随机：缺少 TalkParam 参数表，已跳过。");
+                return;
+            }
+
+            PARAM talk = PARAM.Read(file.Bytes);
+            if (!talk.ApplyParamdefCarefully(_paramdefs))
+            {
+                report.Warnings.Add("NPC 对话随机：TalkParam 无匹配 paramdef，已跳过。");
+                return;
+            }
+
+            var index = BuildFieldIndex(talk);
+            string[] requiredFields = { "lipSyncStart", "returnPos", "isForceDisp" };
+            var missing = TalkVoiceFields.Concat(TalkDefaultFields).Concat(requiredFields)
+                .Where(field => !index.ContainsKey(field)).ToArray();
+            if (missing.Length > 0)
+            {
+                report.Warnings.Add($"NPC 对话随机：TalkParam 缺少 {string.Join("、", missing)}，已跳过。");
+                return;
+            }
+
+            CheckTalkRhythmHealth(talk, report);
+            int[] voices = TalkVoiceFields.Select(field => index[field]).ToArray();
+            int[] defaults = TalkDefaultFields.Select(field => index[field]).ToArray();
+            int lipSync = index["lipSyncStart"];
+            int returnPos = index["returnPos"];
+            int forceDisplay = index["isForceDisp"];
+            var pools = new Dictionary<(int LipSync, bool HasFemaleVoice), List<PARAM.Row>>();
+
+            foreach (PARAM.Row row in talk.Rows)
+            {
+                if (row.ID <= 0) continue;
+                int msg = Convert.ToInt32(row.Cells[voices[0]].Value, CultureInfo.InvariantCulture);
+                int voice = Convert.ToInt32(row.Cells[voices[1]].Value, CultureInfo.InvariantCulture);
+                int femaleMsg = Convert.ToInt32(row.Cells[voices[2]].Value, CultureInfo.InvariantCulture);
+                int femaleVoice = Convert.ToInt32(row.Cells[voices[3]].Value, CultureInfo.InvariantCulture);
+                int lipSyncStart = Convert.ToInt32(row.Cells[lipSync].Value, CultureInfo.InvariantCulture);
+                if (msg <= 0 || msg != voice || femaleMsg != femaleVoice || femaleMsg < -1 ||
+                    (lipSyncStart != -1 && lipSyncStart != 0) ||
+                    Convert.ToInt32(row.Cells[returnPos].Value, CultureInfo.InvariantCulture) != 0 ||
+                    Convert.ToInt32(row.Cells[forceDisplay].Value, CultureInfo.InvariantCulture) != 0 ||
+                    defaults.Any(field => Convert.ToDouble(row.Cells[field].Value, CultureInfo.InvariantCulture) != -1))
+                    continue;
+
+                var key = (lipSyncStart, femaleMsg > 0);
+                if (!pools.TryGetValue(key, out var rows))
+                    pools[key] = rows = new List<PARAM.Row>();
+                rows.Add(row);
+            }
+
+            int affectedRows = 0;
+            int affectedFields = 0;
+            foreach (var (key, rows) in pools.OrderBy(pair => pair.Key))
+            {
+                if (rows.Count < 2) continue;
+                string poolSeed = FormattableString.Invariant($"{seed}|talk|{key.LipSync}|{key.HasFemaleVoice}");
+                var rng = new Random(Permute.SeedToInt(poolSeed));
+                int[] permutation = Permute.BuildPermutation(rows.Count, _settings.Mode, _settings.ShiftAmount, rng);
+                var values = new object[rows.Count];
+                int fields = key.HasFemaleVoice ? 4 : 2;
+                for (int i = 0; i < fields; i++)
+                    PermuteField(rows, voices[i], permutation, values);
+                affectedRows += rows.Count;
+                affectedFields = Math.Max(affectedFields, fields);
+            }
+
+            if (affectedRows == 0)
+            {
+                report.Warnings.Add("NPC 对话随机：没有找到足够的相容对白，已跳过。");
+                return;
+            }
+
+            file.Bytes = talk.Write();
+            report.Params.Add(new ParamReport
+            {
+                ParamName = "TalkParam",
+                ParamType = talk.ParamType,
+                Description = "NPC 对话（台词与语音）",
+                TotalRows = talk.Rows.Count,
+                AffectedRows = affectedRows,
+                AffectedFields = affectedFields,
+            });
+            Log($"已随机化 NPC 对话：{affectedRows} 行参与台词与语音错位。");
         }
 
         /// <summary>

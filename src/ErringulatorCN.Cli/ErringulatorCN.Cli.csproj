@@ -6,6 +6,7 @@
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>ErringulatorCN.Cli</AssemblyName>
+    <Version>1.7.0</Version>
     <RootNamespace>ErringulatorCN.Cli</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
     <NoWarn>$(NoWarn);NU1603</NoWarn>

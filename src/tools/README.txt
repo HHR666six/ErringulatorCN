@@ -21,4 +21,4 @@
 以上工具均可用仓库内 src/ErringulatorCN.App/paramdefs 作为 paramdefs 目录。
 
 常规用户不需要这些工具——日常校验请使用 ErringulatorCN.Cli
-（summons / safetycheck / compare / verify 等命令，见使用说明第十三节）。
+（summons / safetycheck / compare / verify 等命令，见使用说明第八节）。

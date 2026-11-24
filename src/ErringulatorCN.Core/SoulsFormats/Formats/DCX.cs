@@ -389,8 +389,8 @@ namespace SoulsFormats
             br.AssertASCII("ZSTD");
             br.AssertInt32(0x20);
             // 该字节记录写入方使用的 zstd 压缩级别/版本：
-            //   0x15 (21) = 游戏原版 / SoulsFormats 写入（本工具输出也用它）
-            //   0x0F (15) = Elden Ring Randomizer（thefifthmatt）等工具写入
+            //   0x15 (21) = 游戏原版 / SoulsFormats 默认写入
+            //   0x0F (15) = Elden Ring Randomizer 等工具的写入级别
             // 解压不受此值影响，两者均接受（否则读取 randomizer 生成的
             // regulation.bin 会在同一位置报 "Read Byte: 0xF | Expected: 0x15"）。
             br.AssertByte(15, 21);
@@ -407,7 +407,7 @@ namespace SoulsFormats
 
             type = Type.DCX_ZSTD;
             byte[] compressed = br.ReadBytes((int)compressedSize);
-            var decompressor = new ZstdSharp.Decompressor();
+            using var decompressor = new ZstdSharp.Decompressor();
             return decompressor.Unwrap(compressed).ToArray();
         }
 
@@ -436,6 +436,13 @@ namespace SoulsFormats
         }
         #endregion
 
+        internal static byte[] CompressZstd(byte[] data, byte level)
+        {
+            var bw = new BinaryWriterEx(true);
+            CompressDCXZSTD(data, bw, level);
+            return bw.FinishBytes();
+        }
+
         internal static void Compress(byte[] data, BinaryWriterEx bw, Type type)
         {
             bw.BigEndian = true;
@@ -455,7 +462,7 @@ namespace SoulsFormats
                 || type == Type.DCX_KRAK_9)
                 CompressDCXKRAK(data, bw, type);
             else if (type == Type.DCX_ZSTD)
-                CompressDCXZSTD(data, bw);
+                CompressDCXZSTD(data, bw, 21);
             else if (type == Type.Unknown)
                 throw new ArgumentException("You cannot compress a DCX with an unknown type.");
             else
@@ -654,12 +661,12 @@ namespace SoulsFormats
             bw.Pad(0x10);
         }
 
-        private static void CompressDCXZSTD(byte[] data, BinaryWriterEx bw)
+        private static void CompressDCXZSTD(byte[] data, BinaryWriterEx bw, byte level)
         {
-            var compressor = new ZstdSharp.Compressor(21);
+            using var compressor = new ZstdSharp.Compressor(level);
             compressor.SetParameter(ZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_contentSizeFlag, 0);
             compressor.SetParameter(ZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_windowLog, 16);
-            byte[] compressed = compressor.Wrap(data).ToArray();
+            ReadOnlySpan<byte> compressed = compressor.Wrap(data);
 
             bw.WriteASCII("DCX\0");
             bw.WriteInt32(0x11000);
@@ -675,7 +682,7 @@ namespace SoulsFormats
             bw.WriteASCII("DCP\0");
             bw.WriteASCII("ZSTD");
             bw.WriteInt32(0x20);
-            bw.WriteByte(21);
+            bw.WriteByte(level);
             bw.WriteByte(0);
             bw.WriteByte(0);
             bw.WriteByte(0);
@@ -687,7 +694,7 @@ namespace SoulsFormats
             bw.WriteASCII("DCA\0");
             bw.WriteInt32(8);
 
-            bw.WriteBytes(compressed);
+            bw.Stream.Write(compressed);
             bw.Pad(0x10);
         }
 
